@@ -96,15 +96,15 @@ export async function syncContactsToGoogleSheet(contacts: HouseholdContact[], ac
   const nowStr = new Date().toLocaleString('th-TH');
 
   const rows = contacts.map(c => [
-    c.fullName || '',
+    `${c.prefix}${c.firstName} ${c.lastName}`,
     c.age || '',
     c.relationship || '',
-    c.patientHN || '',
-    c.patientName || '',
+    c.indexPatientHN || '',
+    c.indexPatientName || '',
     c.subdistrict || '',
     c.village || '',
     c.cxrResult || '',
-    c.sputumResult || '',
+    c.afbResult || '',
     c.outcome || '',
     nowStr
   ]);

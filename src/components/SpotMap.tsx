@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Patient, HouseholdContact, SubdistrictInfo } from '../types';
 import L from 'leaflet';
-import { MapPin, Filter, Layers, Phone, Send, Info, Eye } from 'lucide-react';
+import { MapPin, Filter, Layers, Phone, Send, Info, Eye, Share2 } from 'lucide-react';
 
 interface SpotMapProps {
   patients: Patient[];
@@ -9,6 +9,7 @@ interface SpotMapProps {
   subdistricts: SubdistrictInfo[];
   onTriggerPatientNotify: (patient: Patient) => void;
   onSelectPatient: (patient: Patient) => void;
+  onOpenShareLocationModal?: (patient?: Patient) => void;
 }
 
 export const SpotMap: React.FC<SpotMapProps> = ({
@@ -16,7 +17,8 @@ export const SpotMap: React.FC<SpotMapProps> = ({
   contacts,
   subdistricts,
   onTriggerPatientNotify,
-  onSelectPatient
+  onSelectPatient,
+  onOpenShareLocationModal
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
@@ -354,7 +356,17 @@ export const SpotMap: React.FC<SpotMapProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {onOpenShareLocationModal && (
+              <button
+                onClick={() => onOpenShareLocationModal(selectedPatientForModal)}
+                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>สร้างลิงก์ส่งพิกัด</span>
+              </button>
+            )}
+
             <button
               onClick={() => onTriggerPatientNotify(selectedPatientForModal)}
               className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow transition"

@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Patient, HouseholdContact } from '../types';
-import { X, FileSpreadsheet, Download, Database, Upload, RefreshCw, CheckCircle, ExternalLink, CloudUpload, ShieldCheck, LogOut, Loader2 } from 'lucide-react';
+import { X, FileSpreadsheet, Download, Database, Upload, RefreshCw, CheckCircle, ExternalLink, CloudUpload, ShieldCheck, LogOut, Loader2, ArrowRight } from 'lucide-react';
 import { TARGET_SPREADSHEET_ID, TARGET_SPREADSHEET_URL, syncPatientsToGoogleSheet, syncContactsToGoogleSheet } from '../services/googleSheets';
 import { googleSignIn, googleLogout, initAuthListener, getAccessToken } from '../services/googleAuth';
 import { User } from 'firebase/auth';
+import { downloadPatientExcelTemplate, downloadContactExcelTemplate } from '../utils/excelUtils';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface ExportModalProps {
   contacts: HouseholdContact[];
   onResetToDemoData?: () => void;
   onImportJsonData?: (data: { patients?: Patient[]; contacts?: HouseholdContact[] }) => void;
+  onOpenExcelImportModal?: () => void;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -20,7 +22,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   patients,
   contacts,
   onResetToDemoData,
-  onImportJsonData
+  onImportJsonData,
+  onOpenExcelImportModal
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -239,6 +242,52 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
             <Download className="w-4 h-4 text-slate-400 group-hover:text-emerald-600" />
           </button>
+
+          {/* Section 2: Excel Import & Template Download */}
+          <div className="pt-2 border-t space-y-2">
+            <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
+              <span>2. นำเข้าข้อมูลผ่าน Excel & เทมเพลต</span>
+              <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-100 px-2 py-0.5 rounded-full">
+                .XLSX / .XLS / .CSV
+              </span>
+            </div>
+
+            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2.5">
+              {onOpenExcelImportModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenExcelImportModal();
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition flex items-center justify-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>เปิดหน้าต่างนำเข้าข้อมูลจากไฟล์ Excel...</span>
+                </button>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={downloadPatientExcelTemplate}
+                  className="p-2 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100/60 text-slate-800 font-semibold text-[11px] flex items-center justify-center gap-1.5 transition"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>เทมเพลตผู้ป่วย (.xlsx)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={downloadContactExcelTemplate}
+                  className="p-2 rounded-lg bg-white border border-teal-300 hover:bg-teal-100/60 text-slate-800 font-semibold text-[11px] flex items-center justify-center gap-1.5 transition"
+                >
+                  <Download className="w-3.5 h-3.5 text-teal-600" />
+                  <span>เทมเพลตผู้สัมผัส (.xlsx)</span>
+                </button>
+              </div>
+            </div>
+          </div>
 
           <div className="text-xs font-bold text-slate-700 pt-2 border-t flex items-center justify-between">
             <span>3. สำรองข้อมูลไปยัง Google Sheets (ออนไลน์)</span>

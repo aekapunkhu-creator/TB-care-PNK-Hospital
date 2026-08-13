@@ -3,7 +3,7 @@ import { LineNotificationConfig, NotificationLog } from '../types';
 import { generateGoogleAppsScript } from '../utils/gasCodeGenerator';
 import { 
   Bell, Send, Copy, Check, Code, MessageSquare, 
-  Settings, History, Sparkles, CheckCircle2, AlertTriangle, ExternalLink
+  Settings, History, Sparkles, CheckCircle2, Users, Bot, ExternalLink
 } from 'lucide-react';
 
 interface LineAppsScriptProps {
@@ -19,7 +19,12 @@ export const LineAppsScript: React.FC<LineAppsScriptProps> = ({
   logs,
   onAddLog
 }) => {
-  const [tokenInput, setTokenInput] = useState(lineConfig.token);
+  const [activeMode, setActiveMode] = useState<'messaging_api' | 'notify'>(lineConfig.mode || 'messaging_api');
+  const [channelAccessToken, setChannelAccessToken] = useState(lineConfig.channelAccessToken || '');
+  const [targetGroupId, setTargetGroupId] = useState(lineConfig.targetGroupId || '');
+  const [tokenInput, setTokenInput] = useState(lineConfig.token || '');
+  const [lineGroupName, setLineGroupName] = useState(lineConfig.lineGroupName || 'กลุ่มงานควบคุมวัณโรค อ.โพนนาแก้ว');
+
   const [isCopied, setIsCopied] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; msg: string } | null>(null);
@@ -29,8 +34,17 @@ export const LineAppsScript: React.FC<LineAppsScriptProps> = ({
     '💊 [เตือนทานยา DOTS ประจำวัน]\nสวัสดีครับ แจ้งเตือน อสม. พี่เลี้ยงติดตามผู้ป่วยวัณโรค ต.นาแก้ว และ ต.บ้านโพน รับประทานยาเช้านี้เรียบร้อยครับ'
   );
 
+  const currentConfig: LineNotificationConfig = {
+    ...lineConfig,
+    mode: activeMode,
+    channelAccessToken,
+    targetGroupId,
+    token: tokenInput,
+    lineGroupName
+  };
+
   // Generated GAS Code
-  const gasCode = generateGoogleAppsScript({ ...lineConfig, token: tokenInput });
+  const gasCode = generateGoogleAppsScript(currentConfig);
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(gasCode);
@@ -39,62 +53,100 @@ export const LineAppsScript: React.FC<LineAppsScriptProps> = ({
   };
 
   const handleSaveConfig = () => {
-    onUpdateLineConfig({ ...lineConfig, token: tokenInput });
-    setTestResult({ success: true, msg: 'บันทึก Token และการตั้งค่าเรียบร้อยแล้ว' });
+    onUpdateLineConfig(currentConfig);
+    setTestResult({ success: true, msg: 'บันทึกการตั้งค่าระบบแจ้งเตือน LINE เรียบร้อยแล้ว' });
   };
 
-  const handleSendTestNotify = async () => {
+  const handleSendTestMessage = async () => {
     setIsSending(true);
     setTestResult(null);
 
     try {
-      // Call local backend endpoint /api/line-notify
-      const res = await fetch('/api/line-notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: tokenInput,
-          message: customMessage
-        })
-      });
+      if (activeMode === 'messaging_api') {
+        if (!channelAccessToken || !targetGroupId) {
+          throw new Error('กรุณากรอก Channel Access Token และ Group ID ให้ครบถ้วน');
+        }
 
-      const data = await res.json();
-
-      if (data.success) {
-        setTestResult({ success: true, msg: 'ส่งข้อความ LINE Notify สำเร็จแล้ว! (ตรวจสอบในแอป LINE)' });
-        onAddLog({
-          id: `LOG-${Date.now()}`,
-          timestamp: new Date().toLocaleString('th-TH'),
-          type: 'system',
-          targetName: lineConfig.lineGroupName,
-          message: customMessage,
-          status: 'sent'
+        const res = await fetch('/api/line-messaging', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channelAccessToken,
+            targetId: targetGroupId,
+            message: customMessage
+          })
         });
+
+        const data = await res.json();
+
+        if (data.success) {
+          setTestResult({
+            success: true,
+            msg: `ส่งข้อความผ่าน LINE OA Messaging API เข้ากลุ่มไลน์ (${targetGroupId}) สำเร็จแล้ว!`
+          });
+          onAddLog({
+            id: `LOG-${Date.now()}`,
+            timestamp: new Date().toLocaleString('th-TH'),
+            type: 'system',
+            targetName: `${lineGroupName} (Group ID: ${targetGroupId.substring(0, 8)}...)`,
+            message: customMessage,
+            status: 'sent'
+          });
+        } else {
+          setTestResult({
+            success: false,
+            msg: `ข้อผิดพลาดจาก LINE API: ${data.error || 'ไม่สามารถส่งข้อความได้'}`
+          });
+        }
       } else {
-        // Fallback simulation mode
-        setTestResult({ 
-          success: true, 
-          msg: 'โหมดจำลองสถานการณ์ (Simulated Mode): บันทึก Log ข้อความสำเร็จแล้ว' 
+        // LINE Notify Mode
+        if (!tokenInput) {
+          throw new Error('กรุณากรอก LINE Notify Access Token');
+        }
+
+        const res = await fetch('/api/line-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: tokenInput,
+            message: customMessage
+          })
         });
-        onAddLog({
-          id: `LOG-${Date.now()}`,
-          timestamp: new Date().toLocaleString('th-TH'),
-          type: 'system',
-          targetName: lineConfig.lineGroupName,
-          message: customMessage,
-          status: 'simulated'
-        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          setTestResult({
+            success: true,
+            msg: 'ส่งข้อความ LINE Notify สำเร็จแล้ว! (ตรวจสอบในแอป LINE)'
+          });
+          onAddLog({
+            id: `LOG-${Date.now()}`,
+            timestamp: new Date().toLocaleString('th-TH'),
+            type: 'system',
+            targetName: lineGroupName,
+            message: customMessage,
+            status: 'sent'
+          });
+        } else {
+          setTestResult({
+            success: false,
+            msg: `ข้อผิดพลาด LINE Notify: ${JSON.stringify(data.error)}`
+          });
+        }
       }
     } catch (err: any) {
-      setTestResult({ 
-        success: true, 
-        msg: 'บันทึกทดลองส่งข้อความจำลองลงในระบบสำเร็จ' 
+      console.error(err);
+      setTestResult({
+        success: false,
+        msg: err.message || 'เกิดข้อผิดพลาดในการส่งข้อความ'
       });
+      // Fallback log
       onAddLog({
         id: `LOG-${Date.now()}`,
         timestamp: new Date().toLocaleString('th-TH'),
         type: 'system',
-        targetName: lineConfig.lineGroupName,
+        targetName: lineGroupName,
         message: customMessage,
         status: 'simulated'
       });
@@ -111,19 +163,19 @@ export const LineAppsScript: React.FC<LineAppsScriptProps> = ({
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold uppercase tracking-wide">
             <Bell className="w-4 h-4" />
-            <span>ระบบแจ้งเตือนอัตโนมัติผ่าน LINE Notify & Google Apps Script</span>
+            <span>ระบบแจ้งเตือนเข้ากลุ่มไลน์ด้วย LINE Official Account (Messaging API) & Google Apps Script</span>
           </div>
           <h2 className="text-xl font-bold tracking-tight">
-            การตั้งค่า LINE Notify & เชื่อมต่อ Google Apps Script
+            ตั้งค่าระบบส่งข้อความเข้ากลุ่มไลน์ (LINE Group Messaging)
           </h2>
           <p className="text-slate-300 text-xs max-w-2xl">
-            แจ้งเตือนการกินยาประจำวัน (08:00 น.), แจ้งเตือนวันนัดตรวจเสมหะ และเตือนผู้ป่วยขาดการรับยาอัตโนมัติถึงกลุ่มเจ้าหน้าที่สาธารณสุข อ.โพนนาแก้ว
+            รองรับการดึง LINE Official Account (LINE OA Bot) เข้าร่วมกลุ่มไลน์ สสอ./รพ./รพ.สต./อสม. และส่งข้อความเตือนทานยา (08:00 น.), เตือนนัดตรวจเสมหะ และเตือนผู้ป่วยขาดรับยาแบบอัตโนมัติ
           </p>
         </div>
 
         <button
           onClick={handleCopyCode}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow transition"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow transition shrink-0"
         >
           {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
           <span>{isCopied ? 'คัดลอกโค้ดเรียบร้อย!' : 'คัดลอกโค้ด Apps Script'}</span>
@@ -132,49 +184,152 @@ export const LineAppsScript: React.FC<LineAppsScriptProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Token Setup & Live Test Box */}
+        {/* Token & Channel Setup */}
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-5">
-          <div className="flex items-center gap-2 text-slate-900 font-bold text-base border-b border-slate-100 pb-3">
-            <Settings className="w-5 h-5 text-emerald-600" />
-            <span>ตั้งค่า LINE Notify Token และกลุ่มงาน</span>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">
-                LINE Notify Access Token *
-              </label>
-              <input
-                type="text"
-                placeholder="วาง LINE Notify Token ของคุณที่นี่..."
-                value={tokenInput}
-                onChange={e => setTokenInput(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                สร้าง Token ได้ฟรีจากเว็บไซต์ notify-bot.line.me สำหรับส่งเข้ากลุ่มไลน์สาธารณสุข
-              </p>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2 text-slate-900 font-bold text-base">
+              <Settings className="w-5 h-5 text-emerald-600" />
+              <span>ตั้งค่าวิธีส่งข้อความเข้ากลุ่มไลน์</span>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-slate-700 font-medium">ชื่อกลุ่มไลน์เป้าหมาย:</span>
-              <span className="font-semibold text-emerald-700">{lineConfig.lineGroupName}</span>
+            {/* Mode Switch Tabs */}
+            <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+              <button
+                onClick={() => setActiveMode('messaging_api')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeMode === 'messaging_api'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Bot className="w-3.5 h-3.5" />
+                <span>LINE OA (Messaging API)</span>
+              </button>
+              <button
+                onClick={() => setActiveMode('notify')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeMode === 'notify'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                <span>LINE Notify</span>
+              </button>
             </div>
-
-            <button
-              onClick={handleSaveConfig}
-              className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold text-xs transition"
-            >
-              บันทึกการตั้งค่า Token
-            </button>
           </div>
+
+          {activeMode === 'messaging_api' ? (
+            /* LINE OA Messaging API Mode */
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
+                <div className="font-bold text-emerald-900 flex items-center gap-1.5 text-xs">
+                  <Users className="w-4 h-4 text-emerald-600" />
+                  <span>วิธีส่งข้อความเข้ากลุ่มไลน์ผ่าน LINE Official Account (LINE OA):</span>
+                </div>
+                <ol className="list-decimal list-inside text-[11px] text-emerald-800 space-y-0.5">
+                  <li>ดึงบัญชี LINE Official Account (LINE OA) เข้ากลุ่มไลน์ปฏิบัติงานของคุณ</li>
+                  <li>สร้าง Channel Access Token (Long-lived) จาก <a href="https://developers.line.biz/" target="_blank" rel="noreferrer" className="underline font-bold text-emerald-950">LINE Developers Console</a></li>
+                  <li>ระบุ <b>LINE Group ID</b> (รหัสกลุ่มไลน์ที่เริ่มด้วย <code>C...</code>)</li>
+                </ol>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  LINE OA Channel Access Token (Long-lived) *
+                </label>
+                <input
+                  type="text"
+                  placeholder="วาง Channel Access Token ของ LINE OA ที่นี่..."
+                  value={channelAccessToken}
+                  onChange={e => setChannelAccessToken(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Target LINE Group ID (รหัสกลุ่มไลน์เป้าหมาย) *
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น C1234567890abcdef1234567890abcde"
+                  value={targetGroupId}
+                  onChange={e => setTargetGroupId(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  รหัสกลุ่มไลน์ดูได้จาก Webhook Logs หรือบอทแจ้งเตือนอัตโนมัติเมื่อเชิญบอทเข้ากลุ่ม
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  ชื่อกลุ่มไลน์งานวัณโรค
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น กลุ่มควบคุมวัณโรค อ.โพนนาแก้ว"
+                  value={lineGroupName}
+                  onChange={e => setLineGroupName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <button
+                onClick={handleSaveConfig}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition shadow-sm"
+              >
+                บันทึกการตั้งค่า LINE Messaging API
+              </button>
+            </div>
+          ) : (
+            /* LINE Notify Mode */
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  LINE Notify Access Token *
+                </label>
+                <input
+                  type="text"
+                  placeholder="วาง LINE Notify Token ของคุณที่นี่..."
+                  value={tokenInput}
+                  onChange={e => setTokenInput(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  สร้าง Token จากเว็บไซต์ <a href="https://notify-bot.line.me/" target="_blank" rel="noreferrer" className="underline font-bold text-emerald-700">notify-bot.line.me</a>
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  ชื่อกลุ่มไลน์
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น กลุ่มควบคุมวัณโรค อ.โพนนาแก้ว"
+                  value={lineGroupName}
+                  onChange={e => setLineGroupName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <button
+                onClick={handleSaveConfig}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition shadow-sm"
+              >
+                บันทึกการตั้งค่า LINE Notify
+              </button>
+            </div>
+          )}
 
           {/* Test Sandbox */}
           <div className="pt-4 border-t border-slate-100 space-y-3 text-xs">
             <div className="flex items-center justify-between">
               <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
                 <MessageSquare className="w-4 h-4 text-emerald-600" />
-                <span>ทดสอบส่งข้อความแจ้งเตือนด่วน</span>
+                <span>ทดสอบส่งข้อความเข้ากลุ่มไลน์ทันที</span>
               </h4>
             </div>
 
@@ -210,12 +365,12 @@ export const LineAppsScript: React.FC<LineAppsScriptProps> = ({
             />
 
             <button
-              onClick={handleSendTestNotify}
+              onClick={handleSendTestMessage}
               disabled={isSending}
-              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow transition disabled:opacity-50"
+              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow transition disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
-              <span>{isSending ? 'กำลังส่งข้อความ...' : 'ทดสอบส่งข้อความ LINE Notify ทันที'}</span>
+              <span>{isSending ? 'กำลังส่งข้อความเข้ากลุ่มไลน์...' : `ทดสอบส่งข้อความเข้ากลุ่มไลน์ (${activeMode === 'messaging_api' ? 'LINE OA Messaging API' : 'LINE Notify'})`}</span>
             </button>
 
             {testResult && (
@@ -234,14 +389,14 @@ export const LineAppsScript: React.FC<LineAppsScriptProps> = ({
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2 text-slate-900 font-bold text-base">
               <Code className="w-5 h-5 text-emerald-600" />
-              <span>ซอร์สโค้ด Google Apps Script (Code.gs)</span>
+              <span>ซอร์สโค้ด Google Apps Script ส่งข้อความเข้ากลุ่มไลน์ (Code.gs)</span>
             </div>
             <button
               onClick={handleCopyCode}
               className="text-xs text-emerald-700 font-semibold hover:underline flex items-center gap-1"
             >
               <Copy className="w-3.5 h-3.5" />
-              <span>คัดลอกทั้งหมด</span>
+              <span>คัดลอกโค้ดทั้งหมด</span>
             </button>
           </div>
 
@@ -269,7 +424,7 @@ export const LineAppsScript: React.FC<LineAppsScriptProps> = ({
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2 text-slate-900 font-bold text-base">
             <History className="w-5 h-5 text-emerald-600" />
-            <span>ประวัติการส่งข้อความแจ้งเตือน (Notification Logs)</span>
+            <span>ประวัติการส่งข้อความแจ้งเตือนเข้ากลุ่มไลน์ (Notification Logs)</span>
           </div>
           <span className="text-xs text-slate-400">จำนวนบันทึก: {logs.length} รายการ</span>
         </div>

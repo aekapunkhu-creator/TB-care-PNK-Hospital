@@ -33,7 +33,11 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="bg-emerald-900/60 text-emerald-200 px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide uppercase">
             ระบาดวิทยา โรงพยาบาลโพนนาแก้ว
           </span>
-          <span>ระบบสารสนเทศคัดกรอง รักษา ติดตาม และควบคุมโรควัณโรคระดับพื้นที่</span>
+          <span className="hidden sm:inline">ระบบสารสนเทศคัดกรอง รักษา ติดตาม และควบคุมโรควัณโรคระดับพื้นที่</span>
+          <span className="bg-emerald-800 text-emerald-100 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-400/40 flex items-center gap-1 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+            <span>Cloud Database (Firestore) ออนไลน์</span>
+          </span>
         </div>
         
         {/* User Info & Admin Actions in Banner */}

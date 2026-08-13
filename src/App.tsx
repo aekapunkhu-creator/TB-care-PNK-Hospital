@@ -6,6 +6,9 @@ import { PatientManagement } from './components/PatientManagement';
 import { ContactTracing } from './components/ContactTracing';
 import { LineAppsScript } from './components/LineAppsScript';
 import { ExportModal } from './components/ExportModal';
+import { ExcelImportModal } from './components/ExcelImportModal';
+import { ShareLocationLinkModal } from './components/ShareLocationLinkModal';
+import { PublicLocationSubmitView } from './components/PublicLocationSubmitView';
 import { LoginModal } from './components/LoginModal';
 import { UserManagementModal } from './components/UserManagementModal';
 
@@ -20,6 +23,22 @@ import {
 
 import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount } from './types';
 import { CheckCircle2, AlertCircle, Database } from 'lucide-react';
+
+import {
+  subscribePatients,
+  subscribeContacts,
+  subscribeUsers,
+  subscribeLineConfig,
+  subscribeLogs,
+  saveAllPatientsToFirestore,
+  saveAllContactsToFirestore,
+  saveAllUsersToFirestore,
+  saveLineConfigToFirestore,
+  saveAllLogsToFirestore,
+  savePatientToFirestore,
+  saveContactToFirestore,
+  saveUserToFirestore
+} from './services/firebaseStore';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'line-gas'>('dashboard');
@@ -76,25 +95,95 @@ export default function App() {
 
   const [isUserMgmtOpen, setIsUserMgmtOpen] = useState(false);
 
-  // Auto-Save Effects to LocalStorage
+  // Real-time Firestore Cloud DB Sync & Initialization
+  useEffect(() => {
+    // 1. Subscribe Patients
+    const unsubPatients = subscribePatients(
+      (data) => {
+        if (data && data.length > 0) {
+          setPatients(data);
+        } else {
+          // Cloud DB empty, seed with initial dataset
+          saveAllPatientsToFirestore(patients);
+        }
+      },
+      () => {
+        // Fallback or permission error: seed data
+        saveAllPatientsToFirestore(patients);
+      }
+    );
+
+    // 2. Subscribe Contacts
+    const unsubContacts = subscribeContacts(
+      (data) => {
+        if (data && data.length > 0) {
+          setContacts(data);
+        } else {
+          saveAllContactsToFirestore(contacts);
+        }
+      },
+      () => {
+        saveAllContactsToFirestore(contacts);
+      }
+    );
+
+    // 3. Subscribe Users
+    const unsubUsers = subscribeUsers(
+      (data) => {
+        if (data && data.length > 0) {
+          setUsers(data);
+        } else {
+          saveAllUsersToFirestore(users);
+        }
+      },
+      () => {
+        saveAllUsersToFirestore(users);
+      }
+    );
+
+    // 4. Subscribe Line Config
+    const unsubLine = subscribeLineConfig((cfg) => {
+      if (cfg) setLineConfig(cfg);
+    });
+
+    // 5. Subscribe Logs
+    const unsubLogs = subscribeLogs((l) => {
+      if (l && l.length > 0) setLogs(l);
+    });
+
+    return () => {
+      unsubPatients();
+      unsubContacts();
+      unsubUsers();
+      unsubLine();
+      unsubLogs();
+    };
+  }, []);
+
+  // Auto-Save Effects to LocalStorage AND Firestore Cloud DB
   useEffect(() => {
     localStorage.setItem('tb_phon_patients_v2', JSON.stringify(patients));
+    saveAllPatientsToFirestore(patients);
   }, [patients]);
 
   useEffect(() => {
     localStorage.setItem('tb_phon_contacts_v2', JSON.stringify(contacts));
+    saveAllContactsToFirestore(contacts);
   }, [contacts]);
 
   useEffect(() => {
     localStorage.setItem('tb_phon_line_config_v2', JSON.stringify(lineConfig));
+    saveLineConfigToFirestore(lineConfig);
   }, [lineConfig]);
 
   useEffect(() => {
     localStorage.setItem('tb_phon_logs_v2', JSON.stringify(logs));
+    saveAllLogsToFirestore(logs);
   }, [logs]);
 
   useEffect(() => {
     localStorage.setItem('tb_phon_users_v2', JSON.stringify(users));
+    saveAllUsersToFirestore(users);
   }, [users]);
 
   useEffect(() => {
@@ -107,7 +196,62 @@ export default function App() {
 
   // Modals & Navigation Helpers
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [isShareLocationOpen, setIsShareLocationOpen] = useState(false);
+  const [shareLocationTargetPatient, setShareLocationTargetPatient] = useState<Patient | null>(null);
+  const [publicPinningPatient, setPublicPinningPatient] = useState<Patient | null>(null);
   const [selectedPatientForDetail, setSelectedPatientForDetail] = useState<Patient | null>(null);
+
+  // Detect URL parameter for public location pinning link
+  const getPublicTargetIdFromUrl = () => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const searchTarget = searchParams.get('pinLocationFor') || searchParams.get('locationToken');
+      if (searchTarget) return searchTarget;
+
+      const hash = window.location.hash;
+      if (hash) {
+        const cleanedHash = hash.startsWith('#') ? hash.slice(1) : hash;
+        if (cleanedHash.includes('=')) {
+          const hashParams = new URLSearchParams(cleanedHash);
+          const hashTarget = hashParams.get('pinLocationFor') || hashParams.get('locationToken');
+          if (hashTarget) return hashTarget;
+        }
+        const match = hash.match(/#\/?pin\/(.+)/);
+        if (match && match[1]) return match[1];
+      }
+    }
+    return null;
+  };
+
+  const publicTargetId = getPublicTargetIdFromUrl();
+
+  useEffect(() => {
+    if (publicTargetId && patients.length > 0) {
+      const found = patients.find(p => p.id === publicTargetId || p.hn === publicTargetId);
+      if (found) {
+        setPublicPinningPatient(found);
+      }
+    }
+  }, [patients, publicTargetId]);
+
+  // Update Location from public pinning view
+  const handleUpdatePatientLocationFromPublic = (patientId: string, newLat: number, newLng: number) => {
+    let updatedP: Patient | null = null;
+    setPatients(prev => prev.map(p => {
+      if (p.id === patientId) {
+        updatedP = { ...p, lat: newLat, lng: newLng };
+        return updatedP;
+      }
+      return p;
+    }));
+
+    if (updatedP) {
+      savePatientToFirestore(updatedP);
+    }
+
+    showToast(`อัปเดตพิกัดตำแหน่งบ้านสำเร็จแล้ว (Lat: ${newLat}, Lng: ${newLng})`);
+  };
 
   // Toast Banner
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -117,6 +261,24 @@ export default function App() {
     setTimeout(() => {
       setToastMessage(null);
     }, 4000);
+  };
+
+  // Import Excel data handler
+  const handleImportExcelData = (data: { patients: Patient[]; contacts: HouseholdContact[] }) => {
+    let addedP = 0;
+    let addedC = 0;
+
+    if (data.patients && data.patients.length > 0) {
+      setPatients(prev => [...data.patients, ...prev]);
+      addedP = data.patients.length;
+    }
+
+    if (data.contacts && data.contacts.length > 0) {
+      setContacts(prev => [...data.contacts, ...prev]);
+      addedC = data.contacts.length;
+    }
+
+    showToast(`นำเข้าข้อมูลจากไฟล์ Excel สำเร็จแล้ว! (เพิ่มผู้ป่วย ${addedP} ราย, ผู้สัมผัส ${addedC} ราย) ระบบบันทึกเข้าฐานข้อมูลเรียบร้อย`);
   };
 
   // Reset to initial demo dataset handler
@@ -271,6 +433,77 @@ export default function App() {
   // Count missed doses count in active patients
   const missedDosesCount = patients.filter(p => p.status === 'Active' && p.dotsLogs.some(l => !l.taken)).length;
 
+  // Resolve active public pinning patient (from state, current patients array, or initial dataset)
+  const activePublicPatient = publicPinningPatient || 
+    (publicTargetId ? patients.find(p => p.id === publicTargetId || p.hn === publicTargetId) : null) ||
+    (publicTargetId ? INITIAL_PATIENTS.find(p => p.id === publicTargetId || p.hn === publicTargetId) : null);
+
+  // Check if user is logged in first. If not logged in, render LoginModal first.
+  if (currentUser === null) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col font-['Prompt',sans-serif]">
+        <LoginModal
+          users={users}
+          onLogin={(user) => {
+            setCurrentUser(user);
+            showToast(`ยินดีต้อนรับเข้าสู่ระบบ: คุณ${user.fullName}`);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Once logged in: Render Location Pinning View if accessed via generated link or state
+  if (publicTargetId || publicPinningPatient) {
+    if (activePublicPatient) {
+      return (
+        <PublicLocationSubmitView
+          patient={activePublicPatient}
+          onSubmitLocation={handleUpdatePatientLocationFromPublic}
+          onClosePublicView={() => {
+            setPublicPinningPatient(null);
+            if (typeof window !== 'undefined') {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('pinLocationFor');
+              url.searchParams.delete('locationToken');
+              window.history.replaceState({}, '', url.toString());
+            }
+          }}
+        />
+      );
+    }
+
+    // Link target ID not found in database fallback view
+    return (
+      <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4 font-['Prompt',sans-serif]">
+        <div className="bg-white text-slate-900 rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl border border-slate-200">
+          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+            <span className="text-2xl font-bold">📍</span>
+          </div>
+          <h2 className="text-lg font-bold text-slate-900">ระบบระบุพิกัดตำแหน่งบ้าน รพ.โพนนาแก้ว</h2>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            ไม่พบข้อมูลรายชื่อผู้ป่วยสำหรับลิงก์ระบุพิกัดนี้ (รหัส: <span className="font-mono font-bold text-amber-800">{publicTargetId}</span>) <br />
+            ลิงก์อาจไม่ถูกต้อง หรือผู้ป่วยได้รับการจำหน่ายออกจากระบบแล้ว
+          </p>
+          <button 
+            onClick={() => {
+              setPublicPinningPatient(null);
+              if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('pinLocationFor');
+                url.searchParams.delete('locationToken');
+                window.location.href = url.pathname;
+              }
+            }}
+            className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition"
+          >
+            ไปที่หน้าแรกของระบบ
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-['Prompt',sans-serif]">
       
@@ -325,6 +558,10 @@ export default function App() {
               setSelectedPatientForDetail(p);
               setActiveTab('patients');
             }}
+            onOpenShareLocationModal={(p) => {
+              setShareLocationTargetPatient(p || null);
+              setIsShareLocationOpen(true);
+            }}
           />
         )}
 
@@ -338,6 +575,11 @@ export default function App() {
             onTriggerPatientNotify={handleTriggerPatientNotify}
             initialSelectedPatient={selectedPatientForDetail}
             currentUser={currentUser}
+            onOpenExcelImportModal={() => setIsExcelImportOpen(true)}
+            onOpenShareLocationModal={(p) => {
+              setShareLocationTargetPatient(p || null);
+              setIsShareLocationOpen(true);
+            }}
           />
         )}
 
@@ -349,6 +591,7 @@ export default function App() {
             onUpdateContact={handleUpdateContact}
             onDeleteContact={handleDeleteContact}
             currentUser={currentUser}
+            onOpenExcelImportModal={() => setIsExcelImportOpen(true)}
           />
         )}
 
@@ -391,6 +634,32 @@ export default function App() {
         contacts={contacts}
         onResetToDemoData={handleResetToDemoData}
         onImportJsonData={handleImportJsonData}
+        onOpenExcelImportModal={() => setIsExcelImportOpen(true)}
+      />
+
+      {/* Excel Import & Template Modal */}
+      <ExcelImportModal
+        isOpen={isExcelImportOpen}
+        onClose={() => setIsExcelImportOpen(false)}
+        onImportData={handleImportExcelData}
+      />
+
+      {/* Share Location Link & QR Code Modal */}
+      <ShareLocationLinkModal
+        isOpen={isShareLocationOpen}
+        onClose={() => {
+          setIsShareLocationOpen(false);
+          setShareLocationTargetPatient(null);
+        }}
+        patient={shareLocationTargetPatient}
+        allPatients={patients}
+        onSelectPatient={(p) => setShareLocationTargetPatient(p)}
+        onOpenPublicPreview={(pId) => {
+          const found = patients.find(pt => pt.id === pId);
+          if (found) {
+            setPublicPinningPatient(found);
+          }
+        }}
       />
 
       {/* Footer */}

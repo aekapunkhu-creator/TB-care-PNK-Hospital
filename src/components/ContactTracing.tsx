@@ -13,6 +13,7 @@ interface ContactTracingProps {
   onUpdateContact: (updatedContact: HouseholdContact) => void;
   onDeleteContact?: (contactId: string) => void;
   currentUser?: UserAccount | null;
+  onOpenExcelImportModal?: () => void;
 }
 
 export const ContactTracing: React.FC<ContactTracingProps> = ({
@@ -21,7 +22,8 @@ export const ContactTracing: React.FC<ContactTracingProps> = ({
   onAddContact,
   onUpdateContact,
   onDeleteContact,
-  currentUser
+  currentUser,
+  onOpenExcelImportModal
 }) => {
   const isAdmin = currentUser?.role === 'Admin';
   const [searchTerm, setSearchTerm] = useState('');
@@ -128,13 +130,26 @@ export const ContactTracing: React.FC<ContactTracingProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow transition"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>+ บันทึกคัดกรองผู้สัมผัสใหม่</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenExcelImportModal && (
+              <button
+                onClick={onOpenExcelImportModal}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs border border-slate-200 transition"
+                title="นำเข้าข้อมูลจาก Excel และดาวน์โหลดเทมเพลต"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>นำเข้า Excel / เทมเพลต</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow transition"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ บันทึกคัดกรองผู้สัมผัสใหม่</span>
+            </button>
+          </div>
         </div>
 
         {/* Search & Filter */}

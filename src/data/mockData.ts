@@ -635,13 +635,16 @@ export const getHealthUnitsForSubdistrict = (subdistrictName: string): string[] 
 };
 
 export const INITIAL_LINE_CONFIG: LineNotificationConfig = {
+  mode: 'messaging_api',
+  channelAccessToken: 'SAMPLE_LINE_OA_CHANNEL_ACCESS_TOKEN_PHONNAKAEO_TB',
+  targetGroupId: 'C1234567890abcdef1234567890abcde',
   token: 'SAMPLE_LINE_NOTIFY_TOKEN_PHONNAKAEO_TB',
   autoDailyReminders: true,
   reminderTime: '08:00',
   autoAppointmentReminders: true,
   alertOnMissedDoses: true,
   missedThresholdDays: 2,
-  lineGroupName: 'กลุ่มงานควบคุมวัณโรค อ.โพนนาแก้ว (สสอ./รพ.)'
+  lineGroupName: 'กลุ่มงานควบคุมวัณโรค อ.โพนนาแก้ว (สสอ./รพ./รพ.สต./อสม.)'
 };
 
 export const INITIAL_LOGS: NotificationLog[] = [

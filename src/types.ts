@@ -125,9 +125,12 @@ export interface SubdistrictInfo {
 }
 
 export interface LineNotificationConfig {
-  token: string;
+  mode: 'messaging_api' | 'notify';
+  channelAccessToken: string; // LINE OA Messaging API Channel Access Token
+  targetGroupId: string;      // LINE Group ID (C...) or User ID (U...)
+  token: string;              // LINE Notify Token (Legacy)
   autoDailyReminders: boolean;
-  reminderTime: string; // "08:00"
+  reminderTime: string;       // "08:00"
   autoAppointmentReminders: boolean;
   alertOnMissedDoses: boolean;
   missedThresholdDays: number; // e.g. 2

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserAccount } from '../types';
-import { Lock, User, KeyRound, ShieldAlert, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Lock, User, KeyRound, ShieldAlert } from 'lucide-react';
 
 interface LoginModalProps {
   users: UserAccount[];
@@ -25,12 +25,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ users, onLogin }) => {
     } else {
       setErrorMsg('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง โปรดตรวจสอบอีกครั้ง');
     }
-  };
-
-  const handleQuickSelectUser = (u: UserAccount) => {
-    setUsername(u.username);
-    setPassword(u.password);
-    onLogin(u);
   };
 
   return (
@@ -99,39 +93,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ users, onLogin }) => {
               <span>เข้าสู่ระบบ</span>
             </button>
           </form>
-
-          {/* Quick Demo Login Preset Buttons */}
-          <div className="pt-3 border-t border-slate-100">
-            <p className="text-[11px] font-semibold text-slate-500 mb-2">
-              เลือกบัญชีจำลองสำหรับทดสอบระบบด่วน:
-            </p>
-            <div className="space-y-2">
-              {users.map(u => (
-                <button
-                  key={u.id}
-                  onClick={() => handleQuickSelectUser(u)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-left transition flex items-center justify-between group"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-800 group-hover:text-blue-800">
-                        {u.fullName}
-                      </span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
-                        u.role === 'Admin' ? 'bg-purple-100 text-purple-700' : u.role === 'Staff' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
-                      }`}>
-                        {u.role}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Username: <code className="font-mono text-blue-600">{u.username}</code> | Pass: <code className="font-mono text-slate-600">{u.password}</code>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition" />
-                </button>
-              ))}
-            </div>
-          </div>
 
         </div>
 

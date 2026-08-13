@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Patient, TBType, TreatmentStatus, SputumResultStatus, UserAccount } from '../types';
 import { 
   Users, UserPlus, Search, Filter, Calendar, CheckCircle, 
-  XCircle, AlertCircle, Phone, FileText, Send, X, Plus, Clock, Eye, Edit3, Trash2, MapPin, Map, Navigation, Crosshair
+  XCircle, AlertCircle, Phone, FileText, Send, X, Plus, Clock, Eye, Edit3, Trash2, MapPin, Map, Navigation, Crosshair, FileSpreadsheet, Share2, Link
 } from 'lucide-react';
 import { EditPatientModal } from './EditPatientModal';
 import { LocationPickerModal } from './LocationPickerModal';
@@ -17,6 +17,8 @@ interface PatientManagementProps {
   onTriggerPatientNotify: (patient: Patient) => void;
   initialSelectedPatient?: Patient | null;
   currentUser?: UserAccount | null;
+  onOpenExcelImportModal?: () => void;
+  onOpenShareLocationModal?: (patient?: Patient) => void;
 }
 
 export const PatientManagement: React.FC<PatientManagementProps> = ({
@@ -27,7 +29,9 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
   onDeletePatient,
   onTriggerPatientNotify,
   initialSelectedPatient,
-  currentUser
+  currentUser,
+  onOpenExcelImportModal,
+  onOpenShareLocationModal
 }) => {
   const isAdmin = currentUser?.role === 'Admin';
   // Filters & State
@@ -167,13 +171,37 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={() => setIsRegisterModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow transition"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>+ ลงทะเบียนผู้ป่วยใหม่</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenShareLocationModal && (
+              <button
+                onClick={() => onOpenShareLocationModal()}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-semibold text-xs border border-indigo-200 transition"
+                title="สร้างลิงก์และ QR Code ให้คนไข้หรือ อสม. ส่งพิกัด GPS"
+              >
+                <Share2 className="w-4 h-4 text-indigo-600" />
+                <span>สร้างลิงก์ส่งพิกัด</span>
+              </button>
+            )}
+
+            {onOpenExcelImportModal && (
+              <button
+                onClick={onOpenExcelImportModal}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs border border-slate-200 transition"
+                title="นำเข้าข้อมูลจาก Excel และดาวน์โหลดเทมเพลต"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>นำเข้า Excel / เทมเพลต</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsRegisterModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow transition"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ ลงทะเบียนผู้ป่วยใหม่</span>
+            </button>
+          </div>
         </div>
 
         {/* Filter Toolbar */}
@@ -300,6 +328,16 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>แก้ไข</span>
                       </button>
+                      {onOpenShareLocationModal && (
+                        <button
+                          onClick={() => onOpenShareLocationModal(patient)}
+                          className="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white font-medium transition inline-flex items-center gap-1"
+                          title="สร้างลิงก์และ QR Code ระบุพิกัดให้คนไข้/อสม."
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>ลิงก์พิกัด</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => onTriggerPatientNotify(patient)}
                         className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-emerald-600 hover:text-white transition"
@@ -428,13 +466,24 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setIsDetailMapPickerOpen(true)}
-                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition shrink-0"
-                >
-                  <Map className="w-3.5 h-3.5 text-amber-300" />
-                  <span>ปักหมุดตำแหน่งบน Map</span>
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {onOpenShareLocationModal && (
+                    <button
+                      onClick={() => onOpenShareLocationModal(selectedPatient)}
+                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-amber-300" />
+                      <span>สร้างลิงก์ส่งพิกัด</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsDetailMapPickerOpen(true)}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
+                  >
+                    <Map className="w-3.5 h-3.5 text-amber-300" />
+                    <span>ปักหมุดบน Map</span>
+                  </button>
+                </div>
               </div>
 
               {/* Interactive Daily DOTS Medication Calendar */}

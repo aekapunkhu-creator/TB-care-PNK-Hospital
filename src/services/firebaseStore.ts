@@ -1,0 +1,180 @@
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  getDocs,
+  onSnapshot,
+  writeBatch
+} from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json';
+import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount } from '../types';
+
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+export const db = getFirestore(
+  app,
+  firebaseConfig.firestoreDatabaseId || '(default)'
+);
+
+// Subscribe real-time collections
+export function subscribePatients(onData: (data: Patient[]) => void, onError?: (err: any) => void) {
+  const colRef = collection(db, 'patients');
+  return onSnapshot(colRef, (snapshot) => {
+    if (!snapshot.empty) {
+      const items: Patient[] = [];
+      snapshot.forEach(d => {
+        items.push(d.data() as Patient);
+      });
+      onData(items);
+    }
+  }, (err) => {
+    console.error('Patients snapshot error:', err);
+    if (onError) onError(err);
+  });
+}
+
+export function subscribeContacts(onData: (data: HouseholdContact[]) => void, onError?: (err: any) => void) {
+  const colRef = collection(db, 'contacts');
+  return onSnapshot(colRef, (snapshot) => {
+    if (!snapshot.empty) {
+      const items: HouseholdContact[] = [];
+      snapshot.forEach(d => {
+        items.push(d.data() as HouseholdContact);
+      });
+      onData(items);
+    }
+  }, (err) => {
+    console.error('Contacts snapshot error:', err);
+    if (onError) onError(err);
+  });
+}
+
+export function subscribeUsers(onData: (data: UserAccount[]) => void, onError?: (err: any) => void) {
+  const colRef = collection(db, 'users');
+  return onSnapshot(colRef, (snapshot) => {
+    if (!snapshot.empty) {
+      const items: UserAccount[] = [];
+      snapshot.forEach(d => {
+        items.push(d.data() as UserAccount);
+      });
+      onData(items);
+    }
+  }, (err) => {
+    console.error('Users snapshot error:', err);
+    if (onError) onError(err);
+  });
+}
+
+export function subscribeLineConfig(onData: (data: LineNotificationConfig) => void) {
+  const docRef = doc(db, 'config', 'lineConfig');
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      onData(docSnap.data() as LineNotificationConfig);
+    }
+  });
+}
+
+export function subscribeLogs(onData: (data: NotificationLog[]) => void) {
+  const colRef = collection(db, 'logs');
+  return onSnapshot(colRef, (snapshot) => {
+    if (!snapshot.empty) {
+      const items: NotificationLog[] = [];
+      snapshot.forEach(d => {
+        items.push(d.data() as NotificationLog);
+      });
+      onData(items);
+    }
+  });
+}
+
+// Bulk Save / Seed Functions
+export async function saveAllPatientsToFirestore(patients: Patient[]) {
+  try {
+    const batch = writeBatch(db);
+    patients.forEach(p => {
+      const docRef = doc(db, 'patients', p.id);
+      batch.set(docRef, p);
+    });
+    await batch.commit();
+  } catch (e) {
+    console.error('Error saving patients to firestore', e);
+  }
+}
+
+export async function saveAllContactsToFirestore(contacts: HouseholdContact[]) {
+  try {
+    const batch = writeBatch(db);
+    contacts.forEach(c => {
+      const docRef = doc(db, 'contacts', c.id);
+      batch.set(docRef, c);
+    });
+    await batch.commit();
+  } catch (e) {
+    console.error('Error saving contacts to firestore', e);
+  }
+}
+
+export async function saveAllUsersToFirestore(users: UserAccount[]) {
+  try {
+    const batch = writeBatch(db);
+    users.forEach(u => {
+      const docRef = doc(db, 'users', u.id);
+      batch.set(docRef, u);
+    });
+    await batch.commit();
+  } catch (e) {
+    console.error('Error saving users to firestore', e);
+  }
+}
+
+export async function saveLineConfigToFirestore(config: LineNotificationConfig) {
+  try {
+    const docRef = doc(db, 'config', 'lineConfig');
+    await setDoc(docRef, config);
+  } catch (e) {
+    console.error('Error saving line config to firestore', e);
+  }
+}
+
+export async function saveAllLogsToFirestore(logs: NotificationLog[]) {
+  try {
+    const batch = writeBatch(db);
+    logs.forEach(l => {
+      const docRef = doc(db, 'logs', l.id);
+      batch.set(docRef, l);
+    });
+    await batch.commit();
+  } catch (e) {
+    console.error('Error saving logs to firestore', e);
+  }
+}
+
+// Single Item Persistence Helpers
+export async function savePatientToFirestore(patient: Patient) {
+  try {
+    const docRef = doc(db, 'patients', patient.id);
+    await setDoc(docRef, patient);
+  } catch (e) {
+    console.error('Error saving patient to firestore', e);
+  }
+}
+
+export async function saveContactToFirestore(contact: HouseholdContact) {
+  try {
+    const docRef = doc(db, 'contacts', contact.id);
+    await setDoc(docRef, contact);
+  } catch (e) {
+    console.error('Error saving contact to firestore', e);
+  }
+}
+
+export async function saveUserToFirestore(user: UserAccount) {
+  try {
+    const docRef = doc(db, 'users', user.id);
+    await setDoc(docRef, user);
+  } catch (e) {
+    console.error('Error saving user to firestore', e);
+  }
+}
