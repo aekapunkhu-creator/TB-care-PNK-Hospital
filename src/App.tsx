@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { SpotMap } from './components/SpotMap';
@@ -19,21 +19,91 @@ import {
 } from './data/mockData';
 
 import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount } from './types';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Database } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'line-gas'>('dashboard');
 
-  // Application State
-  const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS);
-  const [contacts, setContacts] = useState<HouseholdContact[]>(INITIAL_CONTACTS);
-  const [lineConfig, setLineConfig] = useState<LineNotificationConfig>(INITIAL_LINE_CONFIG);
-  const [logs, setLogs] = useState<NotificationLog[]>(INITIAL_LOGS);
+  // Application Persistent State
+  const [patients, setPatients] = useState<Patient[]>(() => {
+    const saved = localStorage.getItem('tb_phon_patients_v2');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error('Error loading patients from storage', e); }
+    }
+    return INITIAL_PATIENTS;
+  });
+
+  const [contacts, setContacts] = useState<HouseholdContact[]>(() => {
+    const saved = localStorage.getItem('tb_phon_contacts_v2');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error('Error loading contacts from storage', e); }
+    }
+    return INITIAL_CONTACTS;
+  });
+
+  const [lineConfig, setLineConfig] = useState<LineNotificationConfig>(() => {
+    const saved = localStorage.getItem('tb_phon_line_config_v2');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error('Error loading line config from storage', e); }
+    }
+    return INITIAL_LINE_CONFIG;
+  });
+
+  const [logs, setLogs] = useState<NotificationLog[]>(() => {
+    const saved = localStorage.getItem('tb_phon_logs_v2');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error('Error loading logs from storage', e); }
+    }
+    return INITIAL_LOGS;
+  });
 
   // User Accounts & Authentication State
-  const [users, setUsers] = useState<UserAccount[]>(INITIAL_USERS);
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(INITIAL_USERS[0]); // Default logged in as Admin
+  const [users, setUsers] = useState<UserAccount[]>(() => {
+    const saved = localStorage.getItem('tb_phon_users_v2');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error('Error loading users from storage', e); }
+    }
+    return INITIAL_USERS;
+  });
+
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    const saved = localStorage.getItem('tb_phon_current_user_v2');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return INITIAL_USERS[0]; // Default logged in as Admin
+  });
+
   const [isUserMgmtOpen, setIsUserMgmtOpen] = useState(false);
+
+  // Auto-Save Effects to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('tb_phon_patients_v2', JSON.stringify(patients));
+  }, [patients]);
+
+  useEffect(() => {
+    localStorage.setItem('tb_phon_contacts_v2', JSON.stringify(contacts));
+  }, [contacts]);
+
+  useEffect(() => {
+    localStorage.setItem('tb_phon_line_config_v2', JSON.stringify(lineConfig));
+  }, [lineConfig]);
+
+  useEffect(() => {
+    localStorage.setItem('tb_phon_logs_v2', JSON.stringify(logs));
+  }, [logs]);
+
+  useEffect(() => {
+    localStorage.setItem('tb_phon_users_v2', JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('tb_phon_current_user_v2', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('tb_phon_current_user_v2');
+    }
+  }, [currentUser]);
 
   // Modals & Navigation Helpers
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -47,6 +117,39 @@ export default function App() {
     setTimeout(() => {
       setToastMessage(null);
     }, 4000);
+  };
+
+  // Reset to initial demo dataset handler
+  const handleResetToDemoData = () => {
+    if (window.confirm('คุณต้องการรีเซ็ตข้อมูลทั้งหมดกลับเป็นค่าเริ่มต้นตัวอย่างใช่หรือไม่? (ข้อมูลที่บันทึกไว้ล่วงหน้าจะถูกแทนที่)')) {
+      setPatients(INITIAL_PATIENTS);
+      setContacts(INITIAL_CONTACTS);
+      setLineConfig(INITIAL_LINE_CONFIG);
+      setLogs(INITIAL_LOGS);
+      setUsers(INITIAL_USERS);
+      setCurrentUser(INITIAL_USERS[0]);
+      localStorage.removeItem('tb_phon_patients_v2');
+      localStorage.removeItem('tb_phon_contacts_v2');
+      localStorage.removeItem('tb_phon_line_config_v2');
+      localStorage.removeItem('tb_phon_logs_v2');
+      localStorage.removeItem('tb_phon_users_v2');
+      localStorage.removeItem('tb_phon_current_user_v2');
+      showToast('รีเซ็ตข้อมูลกลับเป็นค่าเริ่มต้นตัวอย่างเรียบร้อยแล้ว');
+    }
+  };
+
+  // Import JSON backup handler
+  const handleImportJsonData = (data: { patients?: Patient[]; contacts?: HouseholdContact[]; users?: UserAccount[] }) => {
+    if (data.patients && Array.isArray(data.patients)) {
+      setPatients(data.patients);
+    }
+    if (data.contacts && Array.isArray(data.contacts)) {
+      setContacts(data.contacts);
+    }
+    if (data.users && Array.isArray(data.users)) {
+      setUsers(data.users);
+    }
+    showToast('นำเข้าข้อมูลสำเร็จแล้ว ระบบบันทึกข้อมูลเข้าฐานข้อมูลเรียบร้อย');
   };
 
   // User Account Management Handlers
@@ -286,6 +389,8 @@ export default function App() {
         onClose={() => setIsExportOpen(false)}
         patients={patients}
         contacts={contacts}
+        onResetToDemoData={handleResetToDemoData}
+        onImportJsonData={handleImportJsonData}
       />
 
       {/* Footer */}
