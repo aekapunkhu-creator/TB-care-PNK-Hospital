@@ -104,14 +104,24 @@ export interface HouseholdContact {
   notes?: string;
 }
 
+export interface HealthUnitInfo {
+  name: string;
+  subdistrict: string;
+  villagesCount: number;
+  villages: string[];
+}
+
 export interface SubdistrictInfo {
   code: string;
-  name: string; // ตำบลบ้านโพน, ตำบลนาแก้ว, ตำบลโพนกัง, ตำบลนาตงง้อง, ตำบลบ้านเมือง
+  name: string; // ตำบลบ้านโพน, ตำบลบ้านแป้น, ตำบลนาตงวัฒนา, ตำบลเชียงเสือ, ตำบลนาแก้ว
   lat: number;
   lng: number;
   villagesCount: number;
+  healthUnitsCount: number;
   population: number;
-  healthCenterName: string; // รพ.สต.
+  healthCenterName: string; // รพ.สต. / หน่วยบริการ
+  healthUnits: HealthUnitInfo[];
+  villages: string[];
 }
 
 export interface LineNotificationConfig {

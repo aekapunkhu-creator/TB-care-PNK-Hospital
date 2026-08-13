@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { HouseholdContact, ContactOutcome, CXRResult, SputumResultStatus } from '../types';
 import { Edit3, X, Save, User, Activity, FileText, CheckSquare } from 'lucide-react';
-import { PHON_NA_KAEO_SUBDISTRICTS } from '../data/mockData';
+import { PHON_NA_KAEO_SUBDISTRICTS, getVillagesForSubdistrict } from '../data/mockData';
 
 interface EditContactModalProps {
   contact: HouseholdContact | null;
@@ -164,12 +164,20 @@ export const EditContactModal: React.FC<EditContactModalProps> = ({
                 <label className="block font-semibold text-slate-700 mb-1">ตำบล *</label>
                 <select
                   value={formData.subdistrict}
-                  onChange={e => handleChange('subdistrict', e.target.value)}
+                  onChange={e => {
+                    const newSub = e.target.value;
+                    const villages = getVillagesForSubdistrict(newSub);
+                    setFormData(prev => ({
+                      ...prev,
+                      subdistrict: newSub,
+                      village: villages.length > 0 ? villages[0] : prev.village
+                    }));
+                  }}
                   className="w-full p-2.5 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-purple-500 font-medium"
                 >
                   {PHON_NA_KAEO_SUBDISTRICTS.map(s => (
                     <option key={s.code} value={s.name}>
-                      {s.name}
+                      {s.name} ({s.villagesCount} หมู่บ้าน)
                     </option>
                   ))}
                 </select>
@@ -177,13 +185,17 @@ export const EditContactModal: React.FC<EditContactModalProps> = ({
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">หมู่บ้าน / หมู่ที่ *</label>
-                <input
-                  type="text"
-                  required
+                <select
                   value={formData.village}
                   onChange={e => handleChange('village', e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-purple-500"
-                />
+                  className="w-full p-2.5 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-purple-500 font-medium"
+                >
+                  {getVillagesForSubdistrict(formData.subdistrict).map((v, idx) => (
+                    <option key={idx} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

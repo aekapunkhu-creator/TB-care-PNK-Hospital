@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Patient, TBType, TreatmentStatus } from '../types';
-import { Edit3, X, Save, User, MapPin, Pill, Calendar, Phone, Shield } from 'lucide-react';
-import { PHON_NA_KAEO_SUBDISTRICTS } from '../data/mockData';
+import { Edit3, X, Save, User, MapPin, Pill, Calendar, Phone, Shield, Crosshair, Map } from 'lucide-react';
+import { PHON_NA_KAEO_SUBDISTRICTS, getVillagesForSubdistrict } from '../data/mockData';
+import { LocationPickerModal } from './LocationPickerModal';
 
 interface EditPatientModalProps {
   patient: Patient | null;
@@ -19,6 +20,7 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
   if (!isOpen || !patient) return null;
 
   const [formData, setFormData] = useState<Patient>({ ...patient });
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState<boolean>(false);
 
   const handleChange = (field: keyof Patient, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -185,12 +187,20 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
                 <label className="block font-semibold text-slate-700 mb-1">ตำบล *</label>
                 <select
                   value={formData.subdistrict}
-                  onChange={e => handleChange('subdistrict', e.target.value)}
+                  onChange={e => {
+                    const newSub = e.target.value;
+                    const villages = getVillagesForSubdistrict(newSub);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      subdistrict: newSub,
+                      village: villages.length > 0 ? villages[0] : prev.village 
+                    }));
+                  }}
                   className="w-full p-2.5 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500 font-medium"
                 >
                   {PHON_NA_KAEO_SUBDISTRICTS.map(s => (
                     <option key={s.code} value={s.name}>
-                      {s.name}
+                      {s.name} ({s.villagesCount} หมู่บ้าน)
                     </option>
                   ))}
                 </select>
@@ -198,14 +208,17 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">หมู่บ้าน / หมู่ที่ *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="เช่น หมู่ 1 บ้านนาแก้ว"
+                <select
                   value={formData.village}
                   onChange={e => handleChange('village', e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500"
-                />
+                  className="w-full p-2.5 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500 font-medium"
+                >
+                  {getVillagesForSubdistrict(formData.subdistrict).map((v, idx) => (
+                    <option key={idx} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -218,6 +231,57 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
                   className="w-full p-2.5 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            {/* Coordinates / Map Pin Picker */}
+            <div className="mt-3 pt-3 border-t border-slate-200/80 bg-blue-50/50 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-1 w-full sm:w-auto">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700">พิกัดแผนที่บ้านผู้ป่วย (GPS Coordinates):</span>
+                  {formData.lat && formData.lng ? (
+                    <span className="text-[11px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-semibold">
+                      Lat: {formData.lat}, Lng: {formData.lng}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-medium">
+                      ยังไม่ได้ระบุพิกัด
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-[11px] text-slate-500 block">Latitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={formData.lat || ''}
+                      onChange={e => handleChange('lat', parseFloat(e.target.value) || 0)}
+                      placeholder="17.XXXXXX"
+                      className="p-1.5 rounded-lg border border-slate-200 font-mono text-xs w-full bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-500 block">Longitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={formData.lng || ''}
+                      onChange={e => handleChange('lng', parseFloat(e.target.value) || 0)}
+                      placeholder="104.XXXXXX"
+                      className="p-1.5 rounded-lg border border-slate-200 font-mono text-xs w-full bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsMapPickerOpen(true)}
+                className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition shrink-0"
+              >
+                <Map className="w-4 h-4 text-amber-300" />
+                <span>เปิดปักหมุดบนแผนที่ (Map Picker)</span>
+              </button>
             </div>
           </div>
 
@@ -358,6 +422,23 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
           </div>
 
         </form>
+
+        {/* Location Picker Modal */}
+        <LocationPickerModal
+          isOpen={isMapPickerOpen}
+          onClose={() => setIsMapPickerOpen(false)}
+          initialLat={formData.lat}
+          initialLng={formData.lng}
+          subdistrictName={formData.subdistrict}
+          patientName={`${formData.prefix}${formData.firstName} ${formData.lastName}`}
+          onSelectLocation={(selectedLat, selectedLng) => {
+            setFormData(prev => ({
+              ...prev,
+              lat: selectedLat,
+              lng: selectedLng
+            }));
+          }}
+        />
 
       </div>
     </div>

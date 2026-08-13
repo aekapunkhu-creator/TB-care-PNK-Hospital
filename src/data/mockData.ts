@@ -34,52 +34,250 @@ export const INITIAL_USERS: UserAccount[] = [
   }
 ];
 
+export const PHON_NA_KAEO_HEALTH_UNITS = [
+  'PCU โรงพยาบาลโพนนาแก้ว',
+  'รพ.สต.บ้านนาแก้วน้อย',
+  'รพ.สต.บ้านใหม่หนองผือ',
+  'รพ.สต.บ้านใหม่ไชยา',
+  'รพ.สต.บ้านโพนบก',
+  'รพ.สต.บ้านน้ำผุ',
+  'รพ.สต.โพนแคน้อย',
+  'รพ.สต.บ้านโนนสามัคคี'
+];
+
 export const PHON_NA_KAEO_SUBDISTRICTS: SubdistrictInfo[] = [
   {
     code: '471401',
-    name: 'ตำบลนาแก้ว',
-    lat: 17.060,
-    lng: 104.280,
-    villagesCount: 12,
-    population: 11450,
-    healthCenterName: 'โรงพยาบาลโพนนาแก้ว / รพ.สต.นาแก้ว',
-  },
-  {
-    code: '471402',
     name: 'ตำบลบ้านโพน',
     lat: 17.085,
     lng: 104.295,
     villagesCount: 9,
+    healthUnitsCount: 1,
     population: 7820,
-    healthCenterName: 'รพ.สต.บ้านโพน',
+    healthCenterName: 'รพ.สต.บ้านใหม่ไชยา',
+    healthUnits: [
+      {
+        name: 'รพ.สต.บ้านใหม่ไชยา',
+        subdistrict: 'ตำบลบ้านโพน',
+        villagesCount: 9,
+        villages: [
+          'หมู่ที่ 1 บ้านอ้อมแก้วใหญ่',
+          'หมู่ที่ 2 บ้านโพนน้อย',
+          'หมู่ที่ 3 บ้านปู่พิม',
+          'หมู่ที่ 4 บ้านโพนใหญ่',
+          'หมู่ที่ 5 บ้านวังปลาเซียม',
+          'หมู่ที่ 6 บ้านนาจาน',
+          'หมู่ที่ 7 บ้านอ้อมแก้วน้อย',
+          'หมู่ที่ 8 บ้านใหม่ไชยา',
+          'หมู่ที่ 9 บ้านนาจานใหม่'
+        ]
+      }
+    ],
+    villages: [
+      'หมู่ที่ 1 บ้านอ้อมแก้วใหญ่',
+      'หมู่ที่ 2 บ้านโพนน้อย',
+      'หมู่ที่ 3 บ้านปู่พิม',
+      'หมู่ที่ 4 บ้านโพนใหญ่',
+      'หมู่ที่ 5 บ้านวังปลาเซียม',
+      'หมู่ที่ 6 บ้านนาจาน',
+      'หมู่ที่ 7 บ้านอ้อมแก้วน้อย',
+      'หมู่ที่ 8 บ้านใหม่ไชยา',
+      'หมู่ที่ 9 บ้านนาจานใหม่'
+    ]
+  },
+  {
+    code: '471402',
+    name: 'ตำบลบ้านแป้น',
+    lat: 17.040,
+    lng: 104.320,
+    villagesCount: 10,
+    healthUnitsCount: 2,
+    population: 8450,
+    healthCenterName: 'รพ.สต.บ้านโพนบก, รพ.สต.บ้านน้ำผุ',
+    healthUnits: [
+      {
+        name: 'รพ.สต.บ้านโพนบก',
+        subdistrict: 'ตำบลบ้านแป้น',
+        villagesCount: 6,
+        villages: [
+          'หมู่ที่ 2 บ้านโพนงามโคก',
+          'หมู่ที่ 3 บ้านโพนงามท่า',
+          'หมู่ที่ 5 บ้านแป้น',
+          'หมู่ที่ 6 บ้านโพนบก',
+          'หมู่ที่ 9 บ้านโพนงามโคกใหม่',
+          'หมู่ที่ 10 บ้านแป้น'
+        ]
+      },
+      {
+        name: 'รพ.สต.บ้านน้ำผุ',
+        subdistrict: 'ตำบลบ้านแป้น',
+        villagesCount: 4,
+        villages: [
+          'หมู่ที่ 1 บ้านท่าศาลา',
+          'หมู่ที่ 4 บ้านน้ำผุ',
+          'หมู่ที่ 7 บ้านจอมแจ้ง',
+          'หมู่ที่ 8 บ้านบึงประชาราษฎร์'
+        ]
+      }
+    ],
+    villages: [
+      'หมู่ที่ 1 บ้านท่าศาลา',
+      'หมู่ที่ 2 บ้านโพนงามโคก',
+      'หมู่ที่ 3 บ้านโพนงามท่า',
+      'หมู่ที่ 4 บ้านน้ำผุ',
+      'หมู่ที่ 5 บ้านแป้น',
+      'หมู่ที่ 6 บ้านโพนบก',
+      'หมู่ที่ 7 บ้านจอมแจ้ง',
+      'หมู่ที่ 8 บ้านบึงประชาราษฎร์',
+      'หมู่ที่ 9 บ้านโพนงามโคกใหม่',
+      'หมู่ที่ 10 บ้านแป้น'
+    ]
   },
   {
     code: '471403',
-    name: 'ตำบลโพนกัง',
-    lat: 17.040,
-    lng: 104.310,
-    villagesCount: 8,
-    population: 6940,
-    healthCenterName: 'รพ.สต.โพนกัง',
+    name: 'ตำบลนาตงวัฒนา',
+    lat: 17.090,
+    lng: 104.260,
+    villagesCount: 12,
+    healthUnitsCount: 1,
+    population: 9120,
+    healthCenterName: 'รพ.สต.โพนแคน้อย',
+    healthUnits: [
+      {
+        name: 'รพ.สต.โพนแคน้อย',
+        subdistrict: 'ตำบลนาตงวัฒนา',
+        villagesCount: 12,
+        villages: [
+          'หมู่ที่ 1 บ้านนาตงใหญ่',
+          'หมู่ที่ 2 บ้านโพนแคใหญ่',
+          'หมู่ที่ 3 บ้านคอนคู่',
+          'หมู่ที่ 4 บ้านปุ่งน้อย',
+          'หมู่ที่ 5 บ้านปุ่งใหญ่',
+          'หมู่ที่ 6 บ้านนาตงน้อย',
+          'หมู่ที่ 7 บ้านป่าพาง',
+          'หมู่ที่ 8 บ้านบึงศาลา',
+          'หมู่ที่ 9 บ้านโพนแคน้อย',
+          'หมู่ที่ 10 บ้านปุ่งวัฒนา',
+          'หมู่ที่ 11 บ้านโพนแคกลาง',
+          'หมู่ที่ 12 บ้านโพนนาแก้ว'
+        ]
+      }
+    ],
+    villages: [
+      'หมู่ที่ 1 บ้านนาตงใหญ่',
+      'หมู่ที่ 2 บ้านโพนแคใหญ่',
+      'หมู่ที่ 3 บ้านคอนคู่',
+      'หมู่ที่ 4 บ้านปุ่งน้อย',
+      'หมู่ที่ 5 บ้านปุ่งใหญ่',
+      'หมู่ที่ 6 บ้านนาตงน้อย',
+      'หมู่ที่ 7 บ้านป่าพาง',
+      'หมู่ที่ 8 บ้านบึงศาลา',
+      'หมู่ที่ 9 บ้านโพนแคน้อย',
+      'หมู่ที่ 10 บ้านปุ่งวัฒนา',
+      'หมู่ที่ 11 บ้านโพนแคกลาง',
+      'หมู่ที่ 12 บ้านโพนนาแก้ว'
+    ]
   },
   {
     code: '471404',
-    name: 'ตำบลนาตงง้อง',
-    lat: 17.090,
-    lng: 104.260,
-    villagesCount: 10,
-    population: 8310,
-    healthCenterName: 'รพ.สต.นาตงง้อง',
+    name: 'ตำบลเชียงเสือ',
+    lat: 17.025,
+    lng: 104.270,
+    villagesCount: 8,
+    healthUnitsCount: 1,
+    population: 6980,
+    healthCenterName: 'รพ.สต.บ้านโนนสามัคคี',
+    healthUnits: [
+      {
+        name: 'รพ.สต.บ้านโนนสามัคคี',
+        subdistrict: 'ตำบลเชียงเสือ',
+        villagesCount: 8,
+        villages: [
+          'หมู่ที่ 1 บ้านเชียงเสือใหญ่',
+          'หมู่ที่ 2 บ้านเชียงเสือน้อย',
+          'หมู่ที่ 3 บ้านโนนกุง',
+          'หมู่ที่ 4 บ้านท่าสาวคอย',
+          'หมู่ที่ 5 บ้านอุดมวัฒนา',
+          'หมู่ที่ 6 บ้านโนนสามัคคี',
+          'หมู่ที่ 7 บ้านโนนประดู่',
+          'หมู่ที่ 8 บ้านโนนกุงพัฒนา'
+        ]
+      }
+    ],
+    villages: [
+      'หมู่ที่ 1 บ้านเชียงเสือใหญ่',
+      'หมู่ที่ 2 บ้านเชียงเสือน้อย',
+      'หมู่ที่ 3 บ้านโนนกุง',
+      'หมู่ที่ 4 บ้านท่าสาวคอย',
+      'หมู่ที่ 5 บ้านอุดมวัฒนา',
+      'หมู่ที่ 6 บ้านโนนสามัคคี',
+      'หมู่ที่ 7 บ้านโนนประดู่',
+      'หมู่ที่ 8 บ้านโนนกุงพัฒนา'
+    ]
   },
   {
     code: '471405',
-    name: 'ตำบลบ้านเมือง',
-    lat: 17.025,
-    lng: 104.270,
-    villagesCount: 10,
-    population: 8650,
-    healthCenterName: 'รพ.สต.บ้านเมือง',
-  },
+    name: 'ตำบลนาแก้ว',
+    lat: 17.060,
+    lng: 104.280,
+    villagesCount: 14,
+    healthUnitsCount: 3,
+    population: 11450,
+    healthCenterName: 'PCU รพ.โพนนาแก้ว, รพ.สต.บ้านนาแก้วน้อย, รพ.สต.บ้านใหม่หนองผือ',
+    healthUnits: [
+      {
+        name: 'PCU โรงพยาบาลโพนนาแก้ว',
+        subdistrict: 'ตำบลนาแก้ว',
+        villagesCount: 4,
+        villages: [
+          'หมู่ที่ 2 บ้านนาเดื่อ',
+          'หมู่ที่ 3 บ้านกลาง',
+          'หมู่ที่ 10 บ้านกลางใหม่',
+          'หมู่ที่ 11 บ้านนาเดื่อน้อย'
+        ]
+      },
+      {
+        name: 'รพ.สต.บ้านนาแก้วน้อย',
+        subdistrict: 'ตำบลนาแก้ว',
+        villagesCount: 4,
+        villages: [
+          'หมู่ที่ 1 บ้านนาแก้ว',
+          'หมู่ที่ 9 บ้านนาแก้วน้อย',
+          'หมู่ที่ 13 บ้านนาแก้วเหนือ',
+          'หมู่ที่ 14 บ้านนาแก้วสามัคคี'
+        ]
+      },
+      {
+        name: 'รพ.สต.บ้านใหม่หนองผือ',
+        subdistrict: 'ตำบลนาแก้ว',
+        villagesCount: 6,
+        villages: [
+          'หมู่ที่ 4 บ้านหนองผือ',
+          'หมู่ที่ 5 บ้านหนองกระบอก',
+          'หมู่ที่ 6 บ้านโคกแก้ว',
+          'หมู่ที่ 7 บ้านเทพนิมิต',
+          'หมู่ที่ 8 บ้านใหม่หนองผือ',
+          'หมู่ที่ 12 บ้านหนองกระบอกใหม่'
+        ]
+      }
+    ],
+    villages: [
+      'หมู่ที่ 1 บ้านนาแก้ว',
+      'หมู่ที่ 2 บ้านนาเดื่อ',
+      'หมู่ที่ 3 บ้านกลาง',
+      'หมู่ที่ 4 บ้านหนองผือ',
+      'หมู่ที่ 5 บ้านหนองกระบอก',
+      'หมู่ที่ 6 บ้านโคกแก้ว',
+      'หมู่ที่ 7 บ้านเทพนิมิต',
+      'หมู่ที่ 8 บ้านใหม่หนองผือ',
+      'หมู่ที่ 9 บ้านนาแก้วน้อย',
+      'หมู่ที่ 10 บ้านกลางใหม่',
+      'หมู่ที่ 11 บ้านนาเดื่อน้อย',
+      'หมู่ที่ 12 บ้านหนองกระบอกใหม่',
+      'หมู่ที่ 13 บ้านนาแก้วเหนือ',
+      'หมู่ที่ 14 บ้านนาแก้วสามัคคี'
+    ]
+  }
 ];
 
 // Helper to generate past dates
@@ -153,14 +351,14 @@ export const INITIAL_PATIENTS: Patient[] = [
     age: 64,
     phone: '086-543-2109',
     subdistrict: 'ตำบลบ้านโพน',
-    village: 'หมู่ 3 บ้านโพนกวาง',
+    village: 'หมู่ที่ 3 บ้านปู่พิม',
     houseNo: '12',
     tbType: 'Pulmonary Smear+',
     regimen: '2HRZE/4HR',
     registrationDate: '2026-06-01',
     treatmentStartDate: '2026-06-03',
     expectedEndDate: '2026-12-03',
-    dotsSupervisorName: 'พยาบาลสุภาภรณ์ (รพ.สต.บ้านโพน)',
+    dotsSupervisorName: 'พยาบาลสุภาภรณ์ (รพ.สต.บ้านใหม่ไชยา)',
     dotsSupervisorRole: 'เจ้าหน้าที่ รพ.สต.',
     dotsSupervisorPhone: '084-321-0987',
     status: 'Active',
@@ -193,8 +391,8 @@ export const INITIAL_PATIENTS: Patient[] = [
     gender: 'ชาย',
     age: 48,
     phone: '093-112-2334',
-    subdistrict: 'ตำบลโพนกัง',
-    village: 'หมู่ 2 บ้านโพนกัง',
+    subdistrict: 'ตำบลบ้านแป้น',
+    village: 'หมู่ที่ 6 บ้านโพนบก',
     houseNo: '88/1',
     tbType: 'Pulmonary Smear-',
     regimen: '2HRZE/4HR',
@@ -232,8 +430,8 @@ export const INITIAL_PATIENTS: Patient[] = [
     gender: 'ชาย',
     age: 69,
     phone: '082-998-7766',
-    subdistrict: 'ตำบลนาตงง้อง',
-    village: 'หมู่ 4 บ้านนาตงง้อง',
+    subdistrict: 'ตำบลนาตงวัฒนา',
+    village: 'หมู่ที่ 12 บ้านโพนนาแก้ว',
     houseNo: '102',
     tbType: 'Extra-Pulmonary',
     regimen: '2HRZE/4HR',
@@ -264,15 +462,15 @@ export const INITIAL_PATIENTS: Patient[] = [
     gender: 'หญิง',
     age: 29,
     phone: '098-765-4321',
-    subdistrict: 'ตำบลบ้านเมือง',
-    village: 'หมู่ 2 บ้านหนองบัวฮี',
+    subdistrict: 'ตำบลเชียงเสือ',
+    village: 'หมู่ที่ 6 บ้านโนนสามัคคี',
     houseNo: '77',
     tbType: 'Pulmonary Smear+',
     regimen: '2HRZE/4HR',
     registrationDate: '2026-07-01',
     treatmentStartDate: '2026-07-02',
     expectedEndDate: '2027-01-02',
-    dotsSupervisorName: 'นางสิริพร (รพ.สต.บ้านเมือง)',
+    dotsSupervisorName: 'นางสิริพร (รพ.สต.บ้านโนนสามัคคี)',
     dotsSupervisorRole: 'เจ้าหน้าที่ รพ.สต.',
     dotsSupervisorPhone: '098-123-4567',
     status: 'Active',
@@ -310,7 +508,7 @@ export const INITIAL_CONTACTS: HouseholdContact[] = [
     relationship: 'สามี/ภรรยา',
     phone: '081-234-5679',
     subdistrict: 'ตำบลนาแก้ว',
-    village: 'หมู่ 1 บ้านนาแก้ว',
+    village: 'หมู่ที่ 1 บ้านนาแก้ว',
     riskFactors: ['ผู้สัมผัสร่วมบ้านใกล้ชิด'],
     symptoms: {
       coughOver2Weeks: true,
@@ -344,7 +542,7 @@ export const INITIAL_CONTACTS: HouseholdContact[] = [
     relationship: 'บุตร',
     phone: '081-234-5678',
     subdistrict: 'ตำบลนาแก้ว',
-    village: 'หมู่ 1 บ้านนาแก้ว',
+    village: 'หมู่ที่ 1 บ้านนาแก้ว',
     riskFactors: ['เด็กอายุ < 5 ปี', 'ผู้สัมผัสร่วมบ้านใกล้ชิด'],
     symptoms: {
       coughOver2Weeks: false,
@@ -376,7 +574,7 @@ export const INITIAL_CONTACTS: HouseholdContact[] = [
     relationship: 'สามี/ภรรยา',
     phone: '086-543-2110',
     subdistrict: 'ตำบลบ้านโพน',
-    village: 'หมู่ 3 บ้านโพนกวาง',
+    village: 'หมู่ที่ 3 บ้านปู่พิม',
     riskFactors: ['ผู้สูงอายุ > 60 ปี', 'ผู้สัมผัสร่วมบ้านใกล้ชิด'],
     symptoms: {
       coughOver2Weeks: false,
@@ -406,8 +604,8 @@ export const INITIAL_CONTACTS: HouseholdContact[] = [
     gender: 'หญิง',
     relationship: 'บิดา/มารดา',
     phone: '098-765-4322',
-    subdistrict: 'ตำบลบ้านเมือง',
-    village: 'หมู่ 2 บ้านหนองบัวฮี',
+    subdistrict: 'ตำบลเชียงเสือ',
+    village: 'หมู่ที่ 6 บ้านโนนสามัคคี',
     riskFactors: ['มีโรคประจำตัว/ผู้ป่วย HIV', 'ผู้สัมผัสร่วมบ้านใกล้ชิด'],
     symptoms: {
       coughOver2Weeks: true,
@@ -424,6 +622,17 @@ export const INITIAL_CONTACTS: HouseholdContact[] = [
     notes: 'ส่งตรวจถ่ายภาพรังสีทรวงอก CXR และ GeneXpert ณ รพ.โพนนาแก้ว'
   }
 ];
+
+export const getVillagesForSubdistrict = (subdistrictName: string): string[] => {
+  const found = PHON_NA_KAEO_SUBDISTRICTS.find(s => s.name === subdistrictName);
+  return found ? found.villages : [];
+};
+
+export const getHealthUnitsForSubdistrict = (subdistrictName: string): string[] => {
+  const found = PHON_NA_KAEO_SUBDISTRICTS.find(s => s.name === subdistrictName);
+  if (!found) return PHON_NA_KAEO_HEALTH_UNITS;
+  return found.healthUnits.map(h => h.name);
+};
 
 export const INITIAL_LINE_CONFIG: LineNotificationConfig = {
   token: 'SAMPLE_LINE_NOTIFY_TOKEN_PHONNAKAEO_TB',

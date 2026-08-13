@@ -79,6 +79,19 @@ export default function App() {
     showToast(`อัปเดตข้อมูลผู้ป่วยสำเร็จแล้ว`);
   };
 
+  const handleDeletePatient = (patientId: string) => {
+    if (currentUser?.role !== 'Admin') {
+      showToast('สิทธิ์ไม่ถูกต้อง: เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลบข้อมูลผู้ป่วยได้');
+      return;
+    }
+    const target = patients.find(p => p.id === patientId);
+    setPatients(prev => prev.filter(p => p.id !== patientId));
+    if (selectedPatientForDetail?.id === patientId) {
+      setSelectedPatientForDetail(null);
+    }
+    showToast(`ลบข้อมูลผู้ป่วย ${target ? target.prefix + target.firstName + ' ' + target.lastName : ''} เรียบร้อยแล้ว`);
+  };
+
   const handleAddContact = (newC: HouseholdContact) => {
     setContacts(prev => [newC, ...prev]);
     showToast(`บันทึกคัดกรองผู้สัมผัสใหม่สำเร็จ: ${newC.prefix}${newC.firstName} ${newC.lastName}`);
@@ -87,6 +100,16 @@ export default function App() {
   const handleUpdateContact = (updatedC: HouseholdContact) => {
     setContacts(prev => prev.map(c => c.id === updatedC.id ? updatedC : c));
     showToast(`อัปเดตข้อมูลผู้สัมผัสสำเร็จแล้ว`);
+  };
+
+  const handleDeleteContact = (contactId: string) => {
+    if (currentUser?.role !== 'Admin') {
+      showToast('สิทธิ์ไม่ถูกต้อง: เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลบข้อมูลผู้สัมผัสได้');
+      return;
+    }
+    const target = contacts.find(c => c.id === contactId);
+    setContacts(prev => prev.filter(c => c.id !== contactId));
+    showToast(`ลบข้อมูลผู้สัมผัส ${target ? target.prefix + target.firstName + ' ' + target.lastName : ''} เรียบร้อยแล้ว`);
   };
 
   const handleTriggerPatientNotify = async (patient: Patient) => {
@@ -208,8 +231,10 @@ export default function App() {
             subdistricts={subdistrictNames}
             onAddPatient={handleAddPatient}
             onUpdatePatient={handleUpdatePatient}
+            onDeletePatient={handleDeletePatient}
             onTriggerPatientNotify={handleTriggerPatientNotify}
             initialSelectedPatient={selectedPatientForDetail}
+            currentUser={currentUser}
           />
         )}
 
@@ -219,6 +244,8 @@ export default function App() {
             patients={patients}
             onAddContact={handleAddContact}
             onUpdateContact={handleUpdateContact}
+            onDeleteContact={handleDeleteContact}
+            currentUser={currentUser}
           />
         )}
 

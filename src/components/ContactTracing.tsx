@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { HouseholdContact, Patient, ContactOutcome, CXRResult, SputumResultStatus } from '../types';
+import { HouseholdContact, Patient, ContactOutcome, CXRResult, SputumResultStatus, UserAccount } from '../types';
 import { 
   Users, UserPlus, Search, Filter, ShieldCheck, AlertTriangle, 
-  CheckCircle2, FileSpreadsheet, X, Plus, HeartPulse, Edit3
+  CheckCircle2, FileSpreadsheet, X, Plus, HeartPulse, Edit3, Trash2
 } from 'lucide-react';
 import { EditContactModal } from './EditContactModal';
 
@@ -11,14 +11,19 @@ interface ContactTracingProps {
   patients: Patient[];
   onAddContact: (newContact: HouseholdContact) => void;
   onUpdateContact: (updatedContact: HouseholdContact) => void;
+  onDeleteContact?: (contactId: string) => void;
+  currentUser?: UserAccount | null;
 }
 
 export const ContactTracing: React.FC<ContactTracingProps> = ({
   contacts,
   patients,
   onAddContact,
-  onUpdateContact
+  onUpdateContact,
+  onDeleteContact,
+  currentUser
 }) => {
+  const isAdmin = currentUser?.role === 'Admin';
   const [searchTerm, setSearchTerm] = useState('');
   const [outcomeFilter, setOutcomeFilter] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -232,7 +237,7 @@ export const ContactTracing: React.FC<ContactTracingProps> = ({
               )}
 
               {/* Action row */}
-              <div className="pt-2 border-t border-slate-100 flex justify-end">
+              <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
                 <button
                   onClick={() => setEditingContact(contact)}
                   className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs flex items-center gap-1.5 transition"
@@ -240,6 +245,22 @@ export const ContactTracing: React.FC<ContactTracingProps> = ({
                   <Edit3 className="w-3.5 h-3.5" />
                   <span>แก้ไขข้อมูลผู้สัมผัส</span>
                 </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`คุณต้องการลบข้อมูลคัดกรองผู้สัมผัส ${contact.prefix}${contact.firstName} ${contact.lastName} ใช่หรือไม่?`)) {
+                        if (onDeleteContact) {
+                          onDeleteContact(contact.id);
+                        }
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs flex items-center gap-1.5 transition"
+                    title="ลบข้อมูลผู้สัมผัส (เฉพาะ Admin)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>ลบ</span>
+                  </button>
+                )}
               </div>
             </div>
           );
