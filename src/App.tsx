@@ -36,28 +36,60 @@ import {
   saveLineConfigToFirestore,
   saveAllLogsToFirestore,
   savePatientToFirestore,
+  deletePatientFromFirestore,
   saveContactToFirestore,
-  saveUserToFirestore
+  deleteContactFromFirestore,
+  saveUserToFirestore,
+  deleteUserFromFirestore,
+  clearCollectionInFirestore
 } from './services/firebaseStore';
+
+const MOCK_PATIENT_IDS = ['TB-6701', 'TB-6702', 'TB-6703', 'TB-6704', 'TB-6705'];
+const MOCK_CONTACT_IDS = ['CT-101', 'CT-102', 'CT-103', 'CT-104'];
+const MOCK_LOG_IDS = ['LOG-001', 'LOG-002', 'LOG-003'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'line-gas'>('dashboard');
 
   // Application Persistent State
   const [patients, setPatients] = useState<Patient[]>(() => {
-    const saved = localStorage.getItem('tb_phon_patients_v2');
+    const saved = localStorage.getItem('tb_phon_patients_v3');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error('Error loading patients from storage', e); }
+      try { 
+        const parsed = JSON.parse(saved); 
+        return parsed.filter((p: Patient) => !MOCK_PATIENT_IDS.includes(p.id));
+      } catch (e) { console.error('Error loading patients from storage', e); }
     }
-    return INITIAL_PATIENTS;
+    const oldSaved = localStorage.getItem('tb_phon_patients_v2');
+    if (oldSaved) {
+      try {
+        const parsed = JSON.parse(oldSaved);
+        const cleaned = parsed.filter((p: Patient) => !MOCK_PATIENT_IDS.includes(p.id));
+        localStorage.setItem('tb_phon_patients_v3', JSON.stringify(cleaned));
+        return cleaned;
+      } catch (e) { console.error(e); }
+    }
+    return [];
   });
 
   const [contacts, setContacts] = useState<HouseholdContact[]>(() => {
-    const saved = localStorage.getItem('tb_phon_contacts_v2');
+    const saved = localStorage.getItem('tb_phon_contacts_v3');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error('Error loading contacts from storage', e); }
+      try { 
+        const parsed = JSON.parse(saved);
+        return parsed.filter((c: HouseholdContact) => !MOCK_CONTACT_IDS.includes(c.id));
+      } catch (e) { console.error('Error loading contacts from storage', e); }
     }
-    return INITIAL_CONTACTS;
+    const oldSaved = localStorage.getItem('tb_phon_contacts_v2');
+    if (oldSaved) {
+      try {
+        const parsed = JSON.parse(oldSaved);
+        const cleaned = parsed.filter((c: HouseholdContact) => !MOCK_CONTACT_IDS.includes(c.id));
+        localStorage.setItem('tb_phon_contacts_v3', JSON.stringify(cleaned));
+        return cleaned;
+      } catch (e) { console.error(e); }
+    }
+    return [];
   });
 
   const [lineConfig, setLineConfig] = useState<LineNotificationConfig>(() => {
@@ -69,14 +101,17 @@ export default function App() {
   });
 
   const [logs, setLogs] = useState<NotificationLog[]>(() => {
-    const saved = localStorage.getItem('tb_phon_logs_v2');
+    const saved = localStorage.getItem('tb_phon_logs_v3');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error('Error loading logs from storage', e); }
+      try { 
+        const parsed = JSON.parse(saved);
+        return parsed.filter((l: NotificationLog) => !MOCK_LOG_IDS.includes(l.id));
+      } catch (e) { console.error('Error loading logs from storage', e); }
     }
-    return INITIAL_LOGS;
+    return [];
   });
 
-  // User Accounts & Authentication State
+  // User Accounts & Authentication State - Require login every time on link access / fresh load
   const [users, setUsers] = useState<UserAccount[]>(() => {
     const saved = localStorage.getItem('tb_phon_users_v2');
     if (saved) {
@@ -85,13 +120,7 @@ export default function App() {
     return INITIAL_USERS;
   });
 
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
-    const saved = localStorage.getItem('tb_phon_current_user_v2');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return INITIAL_USERS[0]; // Default logged in as Admin
-  });
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
   const [isUserMgmtOpen, setIsUserMgmtOpen] = useState(false);
 
@@ -100,31 +129,30 @@ export default function App() {
     // 1. Subscribe Patients
     const unsubPatients = subscribePatients(
       (data) => {
-        if (data && data.length > 0) {
-          setPatients(data);
-        } else {
-          // Cloud DB empty, seed with initial dataset
-          saveAllPatientsToFirestore(patients);
-        }
+        const cleaned = (data || []).filter(p => !MOCK_PATIENT_IDS.includes(p.id));
+        // Delete mock items from firestore in background
+        data?.forEach(p => {
+          if (MOCK_PATIENT_IDS.includes(p.id)) {
+            deletePatientFromFirestore(p.id);
+          }
+        });
+        setPatients(cleaned);
       },
-      () => {
-        // Fallback or permission error: seed data
-        saveAllPatientsToFirestore(patients);
-      }
+      () => {}
     );
 
     // 2. Subscribe Contacts
     const unsubContacts = subscribeContacts(
       (data) => {
-        if (data && data.length > 0) {
-          setContacts(data);
-        } else {
-          saveAllContactsToFirestore(contacts);
-        }
+        const cleaned = (data || []).filter(c => !MOCK_CONTACT_IDS.includes(c.id));
+        data?.forEach(c => {
+          if (MOCK_CONTACT_IDS.includes(c.id)) {
+            deleteContactFromFirestore(c.id);
+          }
+        });
+        setContacts(cleaned);
       },
-      () => {
-        saveAllContactsToFirestore(contacts);
-      }
+      () => {}
     );
 
     // 3. Subscribe Users
@@ -133,12 +161,10 @@ export default function App() {
         if (data && data.length > 0) {
           setUsers(data);
         } else {
-          saveAllUsersToFirestore(users);
+          saveAllUsersToFirestore(INITIAL_USERS);
         }
       },
-      () => {
-        saveAllUsersToFirestore(users);
-      }
+      () => {}
     );
 
     // 4. Subscribe Line Config
@@ -148,7 +174,8 @@ export default function App() {
 
     // 5. Subscribe Logs
     const unsubLogs = subscribeLogs((l) => {
-      if (l && l.length > 0) setLogs(l);
+      const cleaned = (l || []).filter(log => !MOCK_LOG_IDS.includes(log.id));
+      setLogs(cleaned);
     });
 
     return () => {
@@ -162,12 +189,12 @@ export default function App() {
 
   // Auto-Save Effects to LocalStorage AND Firestore Cloud DB
   useEffect(() => {
-    localStorage.setItem('tb_phon_patients_v2', JSON.stringify(patients));
+    localStorage.setItem('tb_phon_patients_v3', JSON.stringify(patients));
     saveAllPatientsToFirestore(patients);
   }, [patients]);
 
   useEffect(() => {
-    localStorage.setItem('tb_phon_contacts_v2', JSON.stringify(contacts));
+    localStorage.setItem('tb_phon_contacts_v3', JSON.stringify(contacts));
     saveAllContactsToFirestore(contacts);
   }, [contacts]);
 
@@ -177,7 +204,7 @@ export default function App() {
   }, [lineConfig]);
 
   useEffect(() => {
-    localStorage.setItem('tb_phon_logs_v2', JSON.stringify(logs));
+    localStorage.setItem('tb_phon_logs_v3', JSON.stringify(logs));
     saveAllLogsToFirestore(logs);
   }, [logs]);
 
@@ -330,17 +357,20 @@ export default function App() {
 
   const handleDeleteUser = (userId: string) => {
     setUsers(prev => prev.filter(u => u.id !== userId));
+    deleteUserFromFirestore(userId);
     showToast(`ลบบัญชีผู้ใช้งานเรียบร้อยแล้ว`);
   };
 
   // Handlers
   const handleAddPatient = (newP: Patient) => {
     setPatients(prev => [newP, ...prev]);
+    savePatientToFirestore(newP);
     showToast(`ลงทะเบียนผู้ป่วยใหม่สำเร็จ: ${newP.prefix}${newP.firstName} ${newP.lastName} (${newP.hn})`);
   };
 
   const handleUpdatePatient = (updatedP: Patient) => {
     setPatients(prev => prev.map(p => p.id === updatedP.id ? updatedP : p));
+    savePatientToFirestore(updatedP);
     showToast(`อัปเดตข้อมูลผู้ป่วยสำเร็จแล้ว`);
   };
 
@@ -351,6 +381,7 @@ export default function App() {
     }
     const target = patients.find(p => p.id === patientId);
     setPatients(prev => prev.filter(p => p.id !== patientId));
+    deletePatientFromFirestore(patientId);
     if (selectedPatientForDetail?.id === patientId) {
       setSelectedPatientForDetail(null);
     }
@@ -359,11 +390,13 @@ export default function App() {
 
   const handleAddContact = (newC: HouseholdContact) => {
     setContacts(prev => [newC, ...prev]);
+    saveContactToFirestore(newC);
     showToast(`บันทึกคัดกรองผู้สัมผัสใหม่สำเร็จ: ${newC.prefix}${newC.firstName} ${newC.lastName}`);
   };
 
   const handleUpdateContact = (updatedC: HouseholdContact) => {
     setContacts(prev => prev.map(c => c.id === updatedC.id ? updatedC : c));
+    saveContactToFirestore(updatedC);
     showToast(`อัปเดตข้อมูลผู้สัมผัสสำเร็จแล้ว`);
   };
 
@@ -374,7 +407,35 @@ export default function App() {
     }
     const target = contacts.find(c => c.id === contactId);
     setContacts(prev => prev.filter(c => c.id !== contactId));
+    deleteContactFromFirestore(contactId);
     showToast(`ลบข้อมูลผู้สัมผัส ${target ? target.prefix + target.firstName + ' ' + target.lastName : ''} เรียบร้อยแล้ว`);
+  };
+
+  const handleWipeAllData = async () => {
+    if (!window.confirm('⚠️ คำเตือน: คุณต้องการลบข้อมูลผู้ป่วย, คัดกรองผู้สัมผัส และประวัติการแจ้งเตือนทั้งหมดออกจากระบบและฐานข้อมูล Cloud หรือไม่?\n\n(ข้อมูลจะถูกล้างหมดทั้งในเครื่องและ Cloud ฐานข้อมูลจะว่างเปล่าพร้อมใช้งาน)')) {
+      return;
+    }
+    
+    // Clear Local Storage
+    localStorage.removeItem('tb_phon_patients_v2');
+    localStorage.removeItem('tb_phon_patients_v3');
+    localStorage.removeItem('tb_phon_contacts_v2');
+    localStorage.removeItem('tb_phon_contacts_v3');
+    localStorage.removeItem('tb_phon_logs_v2');
+    localStorage.removeItem('tb_phon_logs_v3');
+    
+    // Clear React State
+    setPatients([]);
+    setContacts([]);
+    setLogs([]);
+    setSelectedPatientForDetail(null);
+
+    // Clear Cloud Firestore collections
+    await clearCollectionInFirestore('patients');
+    await clearCollectionInFirestore('contacts');
+    await clearCollectionInFirestore('logs');
+
+    showToast('ลบข้อมูลทั้งหมดในระบบและฐานข้อมูล Cloud เรียบร้อยแล้ว');
   };
 
   const handleTriggerPatientNotify = async (patient: Patient) => {
@@ -521,6 +582,7 @@ export default function App() {
           setCurrentUser(null);
           showToast('ออกจากระบบเรียบร้อยแล้ว');
         }}
+        onWipeAllData={handleWipeAllData}
       />
 
       {/* Login Screen Overlay when not logged in */}

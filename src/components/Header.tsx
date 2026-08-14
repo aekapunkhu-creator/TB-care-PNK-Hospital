@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, MapPin, Users, UserCheck, Bell, FileSpreadsheet, ShieldAlert, UserCog, LogOut, Lock } from 'lucide-react';
+import { LayoutDashboard, MapPin, Users, UserCheck, Bell, FileSpreadsheet, ShieldAlert, UserCog, LogOut, Lock, Trash2 } from 'lucide-react';
 import { UserAccount } from '../types';
 
 interface HeaderProps {
@@ -12,6 +12,7 @@ interface HeaderProps {
   currentUser: UserAccount | null;
   onOpenUserMgmt: () => void;
   onLogout: () => void;
+  onWipeAllData?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,7 +24,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenExport,
   currentUser,
   onOpenUserMgmt,
-  onLogout
+  onLogout,
+  onWipeAllData
 }) => {
   return (
     <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-40">
@@ -55,14 +57,27 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {currentUser?.role === 'Admin' && (
-            <button
-              onClick={onOpenUserMgmt}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 shadow transition"
-              title="จัดการผู้ใช้และเพิ่มรหัสผ่าน"
-            >
-              <UserCog className="w-3.5 h-3.5" />
-              <span>+ เพิ่มรหัส/จัดการผู้ใช้</span>
-            </button>
+            <>
+              <button
+                onClick={onOpenUserMgmt}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 shadow transition"
+                title="จัดการผู้ใช้และเพิ่มรหัสผ่าน"
+              >
+                <UserCog className="w-3.5 h-3.5" />
+                <span>+ เพิ่มรหัส/จัดการผู้ใช้</span>
+              </button>
+
+              {onWipeAllData && (
+                <button
+                  onClick={onWipeAllData}
+                  className="bg-red-700/80 hover:bg-red-600 text-white px-2 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 shadow transition"
+                  title="ลบข้อมูลผู้ป่วยและผู้สัมผัสทั้งหมดในระบบ"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>ล้างข้อมูลทั้งหมด</span>
+                </button>
+              )}
+            </>
           )}
 
           {currentUser && (

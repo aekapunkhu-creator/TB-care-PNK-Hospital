@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   setDoc,
+  deleteDoc,
   getDocs,
   onSnapshot,
   writeBatch
@@ -22,13 +23,11 @@ export const db = getFirestore(
 export function subscribePatients(onData: (data: Patient[]) => void, onError?: (err: any) => void) {
   const colRef = collection(db, 'patients');
   return onSnapshot(colRef, (snapshot) => {
-    if (!snapshot.empty) {
-      const items: Patient[] = [];
-      snapshot.forEach(d => {
-        items.push(d.data() as Patient);
-      });
-      onData(items);
-    }
+    const items: Patient[] = [];
+    snapshot.forEach(d => {
+      items.push(d.data() as Patient);
+    });
+    onData(items);
   }, (err) => {
     console.error('Patients snapshot error:', err);
     if (onError) onError(err);
@@ -38,13 +37,11 @@ export function subscribePatients(onData: (data: Patient[]) => void, onError?: (
 export function subscribeContacts(onData: (data: HouseholdContact[]) => void, onError?: (err: any) => void) {
   const colRef = collection(db, 'contacts');
   return onSnapshot(colRef, (snapshot) => {
-    if (!snapshot.empty) {
-      const items: HouseholdContact[] = [];
-      snapshot.forEach(d => {
-        items.push(d.data() as HouseholdContact);
-      });
-      onData(items);
-    }
+    const items: HouseholdContact[] = [];
+    snapshot.forEach(d => {
+      items.push(d.data() as HouseholdContact);
+    });
+    onData(items);
   }, (err) => {
     console.error('Contacts snapshot error:', err);
     if (onError) onError(err);
@@ -54,13 +51,11 @@ export function subscribeContacts(onData: (data: HouseholdContact[]) => void, on
 export function subscribeUsers(onData: (data: UserAccount[]) => void, onError?: (err: any) => void) {
   const colRef = collection(db, 'users');
   return onSnapshot(colRef, (snapshot) => {
-    if (!snapshot.empty) {
-      const items: UserAccount[] = [];
-      snapshot.forEach(d => {
-        items.push(d.data() as UserAccount);
-      });
-      onData(items);
-    }
+    const items: UserAccount[] = [];
+    snapshot.forEach(d => {
+      items.push(d.data() as UserAccount);
+    });
+    onData(items);
   }, (err) => {
     console.error('Users snapshot error:', err);
     if (onError) onError(err);
@@ -79,13 +74,11 @@ export function subscribeLineConfig(onData: (data: LineNotificationConfig) => vo
 export function subscribeLogs(onData: (data: NotificationLog[]) => void) {
   const colRef = collection(db, 'logs');
   return onSnapshot(colRef, (snapshot) => {
-    if (!snapshot.empty) {
-      const items: NotificationLog[] = [];
-      snapshot.forEach(d => {
-        items.push(d.data() as NotificationLog);
-      });
-      onData(items);
-    }
+    const items: NotificationLog[] = [];
+    snapshot.forEach(d => {
+      items.push(d.data() as NotificationLog);
+    });
+    onData(items);
   });
 }
 
@@ -161,12 +154,30 @@ export async function savePatientToFirestore(patient: Patient) {
   }
 }
 
+export async function deletePatientFromFirestore(patientId: string) {
+  try {
+    const docRef = doc(db, 'patients', patientId);
+    await deleteDoc(docRef);
+  } catch (e) {
+    console.error('Error deleting patient from firestore', e);
+  }
+}
+
 export async function saveContactToFirestore(contact: HouseholdContact) {
   try {
     const docRef = doc(db, 'contacts', contact.id);
     await setDoc(docRef, contact);
   } catch (e) {
     console.error('Error saving contact to firestore', e);
+  }
+}
+
+export async function deleteContactFromFirestore(contactId: string) {
+  try {
+    const docRef = doc(db, 'contacts', contactId);
+    await deleteDoc(docRef);
+  } catch (e) {
+    console.error('Error deleting contact from firestore', e);
   }
 }
 
@@ -178,3 +189,29 @@ export async function saveUserToFirestore(user: UserAccount) {
     console.error('Error saving user to firestore', e);
   }
 }
+
+export async function deleteUserFromFirestore(userId: string) {
+  try {
+    const docRef = doc(db, 'users', userId);
+    await deleteDoc(docRef);
+  } catch (e) {
+    console.error('Error deleting user from firestore', e);
+  }
+}
+
+export async function clearCollectionInFirestore(collectionName: string) {
+  try {
+    const colRef = collection(db, collectionName);
+    const snap = await getDocs(colRef);
+    if (!snap.empty) {
+      const batch = writeBatch(db);
+      snap.forEach(docSnap => {
+        batch.delete(docSnap.ref);
+      });
+      await batch.commit();
+    }
+  } catch (e) {
+    console.error(`Error clearing collection ${collectionName} in firestore`, e);
+  }
+}
+

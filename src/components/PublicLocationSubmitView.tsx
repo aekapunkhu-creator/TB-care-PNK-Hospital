@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { Patient } from '../types';
 import { 
   MapPin, CheckCircle2, Crosshair, Navigation, HelpCircle, 
-  ArrowLeft, Send, ShieldCheck, CheckCircle, AlertCircle, Compass, Building2, Check
+  Send, ShieldCheck, CheckCircle, AlertCircle, Compass, Building2, Check
 } from 'lucide-react';
 
 interface PublicLocationSubmitViewProps {
@@ -193,16 +193,6 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
                 พื้นที่: ตำบล{patient.subdistrict} ({patient.village})
               </p>
             </div>
-
-            {onClosePublicView && (
-              <button
-                onClick={onClosePublicView}
-                className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-xl transition flex items-center justify-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>กลับสู่หน้าหลักระบบ</span>
-              </button>
-            )}
           </div>
         ) : (
           <div className="p-4 sm:p-5 space-y-4">
