@@ -67,6 +67,8 @@ export interface Patient {
   dotsLogs: DOTSLog[];
   nextAppointmentDate?: string;
   nextAppointmentReason?: string;
+  lastLocationUpdatedBy?: string;
+  lastLocationUpdatedAt?: string;
 }
 
 export interface HouseholdContact {

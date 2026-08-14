@@ -5,10 +5,19 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  getDoc,
   getDocs,
   onSnapshot,
   writeBatch
 } from 'firebase/firestore';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount } from '../types';
 
@@ -18,6 +27,27 @@ export const db = getFirestore(
   app,
   firebaseConfig.firestoreDatabaseId || '(default)'
 );
+
+export const auth = getAuth(app);
+export const googleAuthProvider = new GoogleAuthProvider();
+
+export async function signInWithGoogle(): Promise<FirebaseUser | null> {
+  try {
+    const result = await signInWithPopup(auth, googleAuthProvider);
+    return result.user;
+  } catch (error) {
+    console.error('Google Sign In Error:', error);
+    throw error;
+  }
+}
+
+export async function signOutFirebase(): Promise<void> {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error('Sign Out Error:', error);
+  }
+}
 
 // Subscribe real-time collections
 export function subscribePatients(onData: (data: Patient[]) => void, onError?: (err: any) => void) {
@@ -196,6 +226,30 @@ export async function deleteUserFromFirestore(userId: string) {
     await deleteDoc(docRef);
   } catch (e) {
     console.error('Error deleting user from firestore', e);
+  }
+}
+
+export async function fetchPatientByIdFromFirestore(idOrHn: string): Promise<Patient | null> {
+  try {
+    // 1. Try direct doc ID
+    const docRef = doc(db, 'patients', idOrHn);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as Patient;
+    }
+    // 2. Try querying by HN
+    const colRef = collection(db, 'patients');
+    const allSnaps = await getDocs(colRef);
+    for (const d of allSnaps.docs) {
+      const p = d.data() as Patient;
+      if (p.id === idOrHn || p.hn === idOrHn) {
+        return p;
+      }
+    }
+    return null;
+  } catch (e) {
+    console.error('Error fetching patient directly from firestore', e);
+    return null;
   }
 }
 

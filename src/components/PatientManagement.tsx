@@ -14,6 +14,7 @@ interface PatientManagementProps {
   onAddPatient: (newPatient: Patient) => void;
   onUpdatePatient: (updatedPatient: Patient) => void;
   onDeletePatient?: (patientId: string) => void;
+  onClearAllPatients?: () => void;
   onTriggerPatientNotify: (patient: Patient) => void;
   initialSelectedPatient?: Patient | null;
   currentUser?: UserAccount | null;
@@ -27,6 +28,7 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
   onAddPatient,
   onUpdatePatient,
   onDeletePatient,
+  onClearAllPatients,
   onTriggerPatientNotify,
   initialSelectedPatient,
   currentUser,
@@ -191,6 +193,17 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
               >
                 <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                 <span>นำเข้า Excel / เทมเพลต</span>
+              </button>
+            )}
+
+            {isAdmin && onClearAllPatients && patients.length > 0 && (
+              <button
+                onClick={onClearAllPatients}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-xs border border-red-200 transition"
+                title="ลบและเคลียร์ข้อมูลผู้ป่วยทั้งหมดออกจากระบบ"
+              >
+                <Trash2 className="w-4 h-4 text-red-600" />
+                <span>ลบผู้ป่วยทั้งหมด</span>
               </button>
             )}
 
@@ -456,13 +469,18 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
                       {selectedPatient.houseNo ? `บ้านเลขที่ ${selectedPatient.houseNo}` : ''} {selectedPatient.village} {selectedPatient.subdistrict}
                     </span>
                   </div>
-                  <div className="text-xs font-mono text-slate-600 flex items-center gap-2">
+                  <div className="text-xs font-mono text-slate-600 flex items-center gap-2 flex-wrap">
                     <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold text-blue-800">
                       Lat: {selectedPatient.lat || 'ยังไม่ระบุ'}
                     </span>
                     <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold text-blue-800">
                       Lng: {selectedPatient.lng || 'ยังไม่ระบุ'}
                     </span>
+                    {selectedPatient.lastLocationUpdatedBy && (
+                      <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 text-[10px] font-sans font-medium">
+                        📍 ปักหมุดโดย: {selectedPatient.lastLocationUpdatedBy} {selectedPatient.lastLocationUpdatedAt ? `(${selectedPatient.lastLocationUpdatedAt})` : ''}
+                      </span>
+                    )}
                   </div>
                 </div>
 

@@ -54,12 +54,12 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
     );
   }
 
-  // Construct absolute URL for location pinpointing link (converting dev domain to public preview domain)
-  const rawOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  // Construct reliable absolute URL for location pinpointing link (works on development, preview and production)
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-  // Convert ais-dev- domain to public ais-pre- domain so the link works for anyone without Google Cloud 403 errors
-  const publicOrigin = rawOrigin.replace('ais-dev-', 'ais-pre-');
-  const shareUrl = `${publicOrigin}${pathname}?pinLocationFor=${currentPatient.id}`;
+  // Construct standard query link + hash link (Hash links #pinLocationFor=... always route to index.html without any 404 from static servers)
+  const shareUrl = `${origin}${pathname}?pinLocationFor=${encodeURIComponent(currentPatient.id)}`;
+  const hashShareUrl = `${origin}${pathname}#pinLocationFor=${encodeURIComponent(currentPatient.id)}`;
 
   const displayName = privacyMode 
     ? `${currentPatient.prefix}${currentPatient.firstName.charAt(0)}*** ${currentPatient.lastName.charAt(0)}***`
@@ -231,14 +231,14 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
               </div>
 
               {/* Info Notice about requiring login */}
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-[11px] text-blue-900 space-y-1">
-                <div className="font-bold flex items-center gap-1 text-blue-800">
-                  <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span>คำแนะนำการใช้งาน:</span>
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-950 space-y-1">
+                <div className="font-bold flex items-center gap-1 text-emerald-800">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>ความปลอดภัยในการส่งพิกัด:</span>
                 </div>
-                <p className="leading-relaxed">
+                <p className="leading-relaxed text-emerald-900">
                   กดปุ่ม <b>"คัดลอก"</b> หรือ <b>"แชร์เข้า LINE"</b> เพื่อส่งลิงก์ระบุพิกัด <br />
-                  เมื่อผู้ใช้งานเปิดลิงก์ ระบบจะแสดงหน้า<b>เข้าสู่ระบบเพื่อยืนยันตัวตนก่อน</b> เมื่อเข้าสู่ระบบสำเร็จแล้ว ระบบจะเปิดหน้าปักหมุดตำแหน่งบ้านผู้ป่วยให้อัตโนมัติ ป้องกันปัญหา 403 Error อย่างสมบูรณ์ครับ
+                  ผู้ป่วย หรือ อสม. <b>ไม่ต้องใช้ Username/Password</b> ของโรงพยาบาล โดยระบบจะให้ยืนยันตัวตนด้วย<b>บัญชีอีเมล/Google Mail</b> เพื่อความสะดวกรวดเร็วและบันทึกผู้ส่งพิกัดอย่างปลอดภัย
                 </p>
               </div>
 

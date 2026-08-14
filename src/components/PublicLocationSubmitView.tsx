@@ -8,14 +8,18 @@ import {
 
 interface PublicLocationSubmitViewProps {
   patient: Patient;
-  onSubmitLocation: (patientId: string, newLat: number, newLng: number) => void;
+  reporterEmail?: string;
+  onSubmitLocation: (patientId: string, newLat: number, newLng: number, reporterEmail?: string) => void;
   onClosePublicView?: () => void;
+  onLogoutReporter?: () => void;
 }
 
 export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> = ({
   patient,
+  reporterEmail,
   onSubmitLocation,
-  onClosePublicView
+  onClosePublicView,
+  onLogoutReporter
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
@@ -32,9 +36,9 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
 
-  // Auto-trigger GPS detection on load for high accuracy on mobile
+  // Auto-trigger GPS detection on load with passive fallback
   useEffect(() => {
-    handleGetGPS();
+    handleGetGPS(true);
   }, []);
 
   // Initialize Leaflet Map
@@ -98,11 +102,21 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
 
     leafletMapRef.current = map;
 
-    setTimeout(() => {
+    // Invalidate map size multiple times to ensure proper rendering on iOS Safari
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 500);
+
+    const handleResize = () => {
       map.invalidateSize();
-    }, 250);
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
 
     return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
@@ -119,15 +133,16 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
     }
   };
 
-  const handleGetGPS = () => {
+  const handleGetGPS = (isInitial = false) => {
     if (!navigator.geolocation) {
-      setGpsError('เบราว์เซอร์บนอุปกรณ์นี้ไม่รองรับการดึงพิกัด GPS');
+      if (!isInitial) setGpsError('เบราว์เซอร์บนอุปกรณ์นี้ไม่รองรับการดึงพิกัด GPS');
       return;
     }
 
     setGpsLoading(true);
     setGpsError(null);
 
+    // Progressive GPS retrieval for maximum iOS & Android compatibility
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const uLat = Number(pos.coords.latitude.toFixed(6));
@@ -138,15 +153,35 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
         setGpsLoading(false);
       },
       (err) => {
-        setGpsLoading(false);
-        setGpsError('โปรดอนุญาตให้เบราว์เซอร์เข้าถึงตำแหน่งพิกัด GPS (Allow Location Access) เพื่อค้นหาตำแหน่งบ้าน');
+        // Fallback retry with low accuracy for iOS if high accuracy timed out
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const uLat = Number(pos.coords.latitude.toFixed(6));
+            const uLng = Number(pos.coords.longitude.toFixed(6));
+            const acc = Math.round(pos.coords.accuracy);
+            setAccuracy(acc);
+            updateCoordinates(uLat, uLng);
+            setGpsLoading(false);
+          },
+          (err2) => {
+            setGpsLoading(false);
+            if (!isInitial) {
+              if (err2.code === 1) {
+                setGpsError('โปรดอนุญาตให้เบราว์เซอร์เข้าถึงตำแหน่งพิกัด (เปิด Location Services บน iOS/Android) หรือแตะลากหมุดบนแผนที่ได้โดยตรง');
+              } else {
+                setGpsError('ไม่สามารถดึงตำแหน่ง GPS ได้ในขณะนี้ ท่านสามารถแตะหรือลากหมุดบนแผนที่ไปยังตำแหน่งบ้านได้โดยตรง');
+              }
+            }
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+        );
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   };
 
   const handleConfirmSubmit = () => {
-    onSubmitLocation(patient.id, lat, lng);
+    onSubmitLocation(patient.id, lat, lng, reporterEmail);
     setIsSubmitted(true);
   };
 
@@ -156,18 +191,43 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
         
         {/* Header Bar */}
         <div className="p-5 bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-900 text-white relative">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-amber-300 border border-white/20 shrink-0">
-              <MapPin className="w-6 h-6 animate-bounce" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 text-xs text-emerald-200 font-bold uppercase tracking-wider">
-                <Building2 className="w-3.5 h-3.5" />
-                <span>โรงพยาบาลโพนนาแก้ว จ.สกลนคร</span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-amber-300 border border-white/20 shrink-0">
+                <MapPin className="w-6 h-6 animate-bounce" />
               </div>
-              <h1 className="text-lg font-bold leading-tight">ระบบระบุพิกัดตำแหน่งบ้านผู้ป่วย</h1>
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-emerald-200 font-bold uppercase tracking-wider">
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>โรงพยาบาลโพนนาแก้ว จ.สกลนคร</span>
+                </div>
+                <h1 className="text-lg font-bold leading-tight">ระบบระบุพิกัดตำแหน่งบ้านผู้ป่วย</h1>
+              </div>
             </div>
+
+            {onLogoutReporter && reporterEmail && (
+              <button
+                type="button"
+                onClick={onLogoutReporter}
+                className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-emerald-100 text-[11px] font-bold rounded-xl transition shrink-0"
+                title="เปลี่ยนบัญชีอีเมลผู้บันทึก"
+              >
+                เปลี่ยนอีเมล
+              </button>
+            )}
           </div>
+
+          {reporterEmail && (
+            <div className="mt-3 pt-2.5 border-t border-white/15 flex items-center justify-between text-[11px] text-emerald-100">
+              <div className="flex items-center gap-1.5 truncate">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                <span className="truncate">เข้าสู่ระบบด้วย: <b className="text-white font-mono">{reporterEmail}</b></span>
+              </div>
+              <span className="text-[10px] bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                ยืนยันตัวตนแล้ว
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Success Screen state */}

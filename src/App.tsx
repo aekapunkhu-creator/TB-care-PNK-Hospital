@@ -9,6 +9,7 @@ import { ExportModal } from './components/ExportModal';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { ShareLocationLinkModal } from './components/ShareLocationLinkModal';
 import { PublicLocationSubmitView } from './components/PublicLocationSubmitView';
+import { LocationEmailLogin } from './components/LocationEmailLogin';
 import { LoginModal } from './components/LoginModal';
 import { UserManagementModal } from './components/UserManagementModal';
 
@@ -41,8 +42,10 @@ import {
   deleteContactFromFirestore,
   saveUserToFirestore,
   deleteUserFromFirestore,
-  clearCollectionInFirestore
+  clearCollectionInFirestore,
+  fetchPatientByIdFromFirestore
 } from './services/firebaseStore';
+import { safeStorage } from './utils/safeStorage';
 
 const MOCK_PATIENT_IDS = ['TB-6701', 'TB-6702', 'TB-6703', 'TB-6704', 'TB-6705'];
 const MOCK_CONTACT_IDS = ['CT-101', 'CT-102', 'CT-103', 'CT-104'];
@@ -53,39 +56,25 @@ export default function App() {
 
   // Application Persistent State
   const [patients, setPatients] = useState<Patient[]>(() => {
-    const saved = localStorage.getItem('tb_phon_patients_v3');
-    if (saved) {
-      try { 
-        const parsed = JSON.parse(saved); 
-        return parsed.filter((p: Patient) => !MOCK_PATIENT_IDS.includes(p.id));
-      } catch (e) { console.error('Error loading patients from storage', e); }
-    }
-    const oldSaved = localStorage.getItem('tb_phon_patients_v2');
-    if (oldSaved) {
-      try {
-        const parsed = JSON.parse(oldSaved);
-        const cleaned = parsed.filter((p: Patient) => !MOCK_PATIENT_IDS.includes(p.id));
-        localStorage.setItem('tb_phon_patients_v3', JSON.stringify(cleaned));
-        return cleaned;
-      } catch (e) { console.error(e); }
-    }
+    safeStorage.removeItem('tb_phon_patients_v2');
+    safeStorage.removeItem('tb_phon_patients_v3');
     return [];
   });
 
   const [contacts, setContacts] = useState<HouseholdContact[]>(() => {
-    const saved = localStorage.getItem('tb_phon_contacts_v3');
+    const saved = safeStorage.getItem('tb_phon_contacts_v3');
     if (saved) {
       try { 
         const parsed = JSON.parse(saved);
         return parsed.filter((c: HouseholdContact) => !MOCK_CONTACT_IDS.includes(c.id));
       } catch (e) { console.error('Error loading contacts from storage', e); }
     }
-    const oldSaved = localStorage.getItem('tb_phon_contacts_v2');
+    const oldSaved = safeStorage.getItem('tb_phon_contacts_v2');
     if (oldSaved) {
       try {
         const parsed = JSON.parse(oldSaved);
         const cleaned = parsed.filter((c: HouseholdContact) => !MOCK_CONTACT_IDS.includes(c.id));
-        localStorage.setItem('tb_phon_contacts_v3', JSON.stringify(cleaned));
+        safeStorage.setItem('tb_phon_contacts_v3', JSON.stringify(cleaned));
         return cleaned;
       } catch (e) { console.error(e); }
     }
@@ -93,7 +82,7 @@ export default function App() {
   });
 
   const [lineConfig, setLineConfig] = useState<LineNotificationConfig>(() => {
-    const saved = localStorage.getItem('tb_phon_line_config_v2');
+    const saved = safeStorage.getItem('tb_phon_line_config_v2');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error('Error loading line config from storage', e); }
     }
@@ -101,7 +90,7 @@ export default function App() {
   });
 
   const [logs, setLogs] = useState<NotificationLog[]>(() => {
-    const saved = localStorage.getItem('tb_phon_logs_v3');
+    const saved = safeStorage.getItem('tb_phon_logs_v3');
     if (saved) {
       try { 
         const parsed = JSON.parse(saved);
@@ -113,7 +102,7 @@ export default function App() {
 
   // User Accounts & Authentication State - Require login every time on link access / fresh load
   const [users, setUsers] = useState<UserAccount[]>(() => {
-    const saved = localStorage.getItem('tb_phon_users_v2');
+    const saved = safeStorage.getItem('tb_phon_users_v2');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error('Error loading users from storage', e); }
     }
@@ -123,6 +112,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
   const [isUserMgmtOpen, setIsUserMgmtOpen] = useState(false);
+  const [isFirestoreReady, setIsFirestoreReady] = useState(false);
 
   // Real-time Firestore Cloud DB Sync & Initialization
   useEffect(() => {
@@ -137,9 +127,17 @@ export default function App() {
           }
         });
         setPatients(cleaned);
+        setIsFirestoreReady(true);
       },
-      () => {}
+      () => {
+        setIsFirestoreReady(true);
+      }
     );
+
+    // Safety fallback: if firestore doesn't answer in 3 seconds, mark ready
+    const timer = setTimeout(() => {
+      setIsFirestoreReady(true);
+    }, 3000);
 
     // 2. Subscribe Contacts
     const unsubContacts = subscribeContacts(
@@ -189,35 +187,39 @@ export default function App() {
 
   // Auto-Save Effects to LocalStorage AND Firestore Cloud DB
   useEffect(() => {
-    localStorage.setItem('tb_phon_patients_v3', JSON.stringify(patients));
-    saveAllPatientsToFirestore(patients);
+    safeStorage.setItem('tb_phon_patients_v3', JSON.stringify(patients));
+    if (patients.length > 0) {
+      saveAllPatientsToFirestore(patients);
+    }
   }, [patients]);
 
   useEffect(() => {
-    localStorage.setItem('tb_phon_contacts_v3', JSON.stringify(contacts));
-    saveAllContactsToFirestore(contacts);
+    safeStorage.setItem('tb_phon_contacts_v3', JSON.stringify(contacts));
+    if (contacts.length > 0) {
+      saveAllContactsToFirestore(contacts);
+    }
   }, [contacts]);
 
   useEffect(() => {
-    localStorage.setItem('tb_phon_line_config_v2', JSON.stringify(lineConfig));
+    safeStorage.setItem('tb_phon_line_config_v2', JSON.stringify(lineConfig));
     saveLineConfigToFirestore(lineConfig);
   }, [lineConfig]);
 
   useEffect(() => {
-    localStorage.setItem('tb_phon_logs_v3', JSON.stringify(logs));
+    safeStorage.setItem('tb_phon_logs_v3', JSON.stringify(logs));
     saveAllLogsToFirestore(logs);
   }, [logs]);
 
   useEffect(() => {
-    localStorage.setItem('tb_phon_users_v2', JSON.stringify(users));
+    safeStorage.setItem('tb_phon_users_v2', JSON.stringify(users));
     saveAllUsersToFirestore(users);
   }, [users]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem('tb_phon_current_user_v2', JSON.stringify(currentUser));
+      safeStorage.setItem('tb_phon_current_user_v2', JSON.stringify(currentUser));
     } else {
-      localStorage.removeItem('tb_phon_current_user_v2');
+      safeStorage.removeItem('tb_phon_current_user_v2');
     }
   }, [currentUser]);
 
@@ -229,24 +231,47 @@ export default function App() {
   const [publicPinningPatient, setPublicPinningPatient] = useState<Patient | null>(null);
   const [selectedPatientForDetail, setSelectedPatientForDetail] = useState<Patient | null>(null);
 
-  // Detect URL parameter for public location pinning link
+  // Detect URL parameter for public location pinning link (supporting iOS Safari, Chrome, LINE in-app webviews)
   const getPublicTargetIdFromUrl = () => {
-    if (typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      const searchTarget = searchParams.get('pinLocationFor') || searchParams.get('locationToken');
-      if (searchTarget) return searchTarget;
+    if (typeof window === 'undefined') return null;
+    try {
+      const urlStr = window.location.href;
+      const urlObj = new URL(urlStr);
 
+      // 1. Direct query parameter search
+      const directParam = urlObj.searchParams.get('pinLocationFor') || 
+                          urlObj.searchParams.get('locationToken') || 
+                          urlObj.searchParams.get('target') || 
+                          urlObj.searchParams.get('patientId') || 
+                          urlObj.searchParams.get('id') || 
+                          urlObj.searchParams.get('hn');
+      if (directParam) return decodeURIComponent(directParam).trim();
+
+      // 2. Hash-based parameter search (e.g. #pinLocationFor=TB-01 or #/pin/TB-01)
       const hash = window.location.hash;
       if (hash) {
-        const cleanedHash = hash.startsWith('#') ? hash.slice(1) : hash;
-        if (cleanedHash.includes('=')) {
-          const hashParams = new URLSearchParams(cleanedHash);
-          const hashTarget = hashParams.get('pinLocationFor') || hashParams.get('locationToken');
-          if (hashTarget) return hashTarget;
+        const cleanHash = hash.replace(/^#\/?/, '');
+        if (cleanHash.includes('=')) {
+          const queryPart = cleanHash.includes('?') ? cleanHash.split('?')[1] : cleanHash;
+          const hashParams = new URLSearchParams(queryPart);
+          const hashTarget = hashParams.get('pinLocationFor') || 
+                             hashParams.get('locationToken') || 
+                             hashParams.get('patientId') || 
+                             hashParams.get('id');
+          if (hashTarget) return decodeURIComponent(hashTarget).trim();
         }
-        const match = hash.match(/#\/?pin\/(.+)/);
-        if (match && match[1]) return match[1];
+        const match = cleanHash.match(/pin\/([^/?&#]+)/i);
+        if (match && match[1]) return decodeURIComponent(match[1]).trim();
       }
+
+      // 3. Fallback regex search on raw URL (handles LINE or iOS webview param appending)
+      const regexMatch = urlStr.match(/[?&#]pinLocationFor=([^&#]+)/i) || 
+                         urlStr.match(/[?&#]locationToken=([^&#]+)/i);
+      if (regexMatch && regexMatch[1]) {
+        return decodeURIComponent(regexMatch[1]).trim();
+      }
+    } catch (err) {
+      console.warn('URL parsing error:', err);
     }
     return null;
   };
@@ -254,20 +279,41 @@ export default function App() {
   const publicTargetId = getPublicTargetIdFromUrl();
 
   useEffect(() => {
-    if (publicTargetId && patients.length > 0) {
-      const found = patients.find(p => p.id === publicTargetId || p.hn === publicTargetId);
-      if (found) {
-        setPublicPinningPatient(found);
-      }
+    if (!publicTargetId) return;
+
+    // 1. Try finding in current memory patients
+    const found = patients.find(p => p.id === publicTargetId || p.hn === publicTargetId);
+    if (found) {
+      setPublicPinningPatient(found);
+      return;
     }
+
+    // 2. Fetch directly from Firestore database
+    fetchPatientByIdFromFirestore(publicTargetId).then(p => {
+      if (p) {
+        setPublicPinningPatient(p);
+      }
+    });
   }, [patients, publicTargetId]);
 
+  // State for public location reporter email
+  const [locationReporterEmail, setLocationReporterEmail] = useState<string | null>(() => {
+    return safeStorage.getItem('tb_phon_reporter_email');
+  });
+
   // Update Location from public pinning view
-  const handleUpdatePatientLocationFromPublic = (patientId: string, newLat: number, newLng: number) => {
+  const handleUpdatePatientLocationFromPublic = (patientId: string, newLat: number, newLng: number, reporterEmail?: string) => {
     let updatedP: Patient | null = null;
+    const now = new Date().toLocaleString('th-TH');
     setPatients(prev => prev.map(p => {
       if (p.id === patientId) {
-        updatedP = { ...p, lat: newLat, lng: newLng };
+        updatedP = {
+          ...p,
+          lat: newLat,
+          lng: newLng,
+          lastLocationUpdatedBy: reporterEmail || locationReporterEmail || 'ผู้ใช้งานผ่านลิงก์',
+          lastLocationUpdatedAt: now
+        };
         return updatedP;
       }
       return p;
@@ -388,6 +434,30 @@ export default function App() {
     showToast(`ลบข้อมูลผู้ป่วย ${target ? target.prefix + target.firstName + ' ' + target.lastName : ''} เรียบร้อยแล้ว`);
   };
 
+  const handleClearAllPatients = async () => {
+    if (currentUser?.role !== 'Admin') {
+      showToast('สิทธิ์ไม่ถูกต้อง: เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลบข้อมูลผู้ป่วยทั้งหมดได้');
+      return;
+    }
+    if (!window.confirm('⚠️ ยืนยันการลบ: คุณต้องการลบและเคลียร์ข้อมูลผู้ป่วยทั้งหมดออกจากระบบและฐานข้อมูล Cloud ใช่หรือไม่?\n\n(ข้อมูลผู้ป่วยทั้งหมดจะถูกล้างออกจากระบบ ฐานข้อมูลจะว่างเปล่าพร้อมสำหรับการนำเข้า Excel หรือลงทะเบียนใหม่)')) {
+      return;
+    }
+
+    // Clear Storage
+    safeStorage.removeItem('tb_phon_patients_v2');
+    safeStorage.removeItem('tb_phon_patients_v3');
+
+    // Clear State
+    setPatients([]);
+    setSelectedPatientForDetail(null);
+    setPublicPinningPatient(null);
+
+    // Clear Cloud Firestore
+    await clearCollectionInFirestore('patients');
+
+    showToast('ลบและเคลียร์ข้อมูลผู้ป่วยทั้งหมดออกจากระบบเรียบร้อยแล้ว');
+  };
+
   const handleAddContact = (newC: HouseholdContact) => {
     setContacts(prev => [newC, ...prev]);
     saveContactToFirestore(newC);
@@ -499,28 +569,48 @@ export default function App() {
     (publicTargetId ? patients.find(p => p.id === publicTargetId || p.hn === publicTargetId) : null) ||
     (publicTargetId ? INITIAL_PATIENTS.find(p => p.id === publicTargetId || p.hn === publicTargetId) : null);
 
-  // Check if user is logged in first. If not logged in, render LoginModal first.
-  if (currentUser === null) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex flex-col font-['Prompt',sans-serif]">
-        <LoginModal
-          users={users}
-          onLogin={(user) => {
-            setCurrentUser(user);
-            showToast(`ยินดีต้อนรับเข้าสู่ระบบ: คุณ${user.fullName}`);
-          }}
-        />
-      </div>
-    );
-  }
-
-  // Once logged in: Render Location Pinning View if accessed via generated link or state
+  // 1. If accessed via public location link / state: Use Email-based authentication (No User/Password required)
   if (publicTargetId || publicPinningPatient) {
+    // If patient is not yet loaded and firestore is still initializing, show nice medical loading screen
+    if (!activePublicPatient && !isFirestoreReady) {
+      return (
+        <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-4 font-['Prompt',sans-serif]">
+          <div className="bg-white text-slate-900 rounded-3xl max-w-md w-full p-8 text-center space-y-4 shadow-2xl border border-slate-200 animate-fade-in">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-200">
+              <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <h2 className="text-base font-bold text-slate-900">กำลังเชื่อมต่อระบบ รพ.โพนนาแก้ว...</h2>
+            <p className="text-xs text-slate-500">กรุณารอสักครู่ กำลังดึงข้อมูลระบุพิกัดตำแหน่งบ้านผู้ป่วย</p>
+          </div>
+        </div>
+      );
+    }
+
     if (activePublicPatient) {
+      // Step A: Require Email authentication if not logged in with email
+      if (!locationReporterEmail) {
+        return (
+          <LocationEmailLogin
+            patient={activePublicPatient}
+            onAuthenticated={(email) => {
+              setLocationReporterEmail(email);
+              showToast(`ยืนยันตัวตนด้วยอีเมลสำเร็จ: ${email}`);
+            }}
+          />
+        );
+      }
+
+      // Step B: Show Public Location Pinning Interface
       return (
         <PublicLocationSubmitView
           patient={activePublicPatient}
+          reporterEmail={locationReporterEmail}
           onSubmitLocation={handleUpdatePatientLocationFromPublic}
+          onLogoutReporter={() => {
+            safeStorage.removeItem('tb_phon_reporter_email');
+            setLocationReporterEmail(null);
+            showToast('ออกจากระบบอีเมลเรียบร้อยแล้ว');
+          }}
           onClosePublicView={() => {
             setPublicPinningPatient(null);
             if (typeof window !== 'undefined') {
@@ -561,6 +651,21 @@ export default function App() {
             ไปที่หน้าแรกของระบบ
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // 2. Hospital Staff View: Requires Staff Username & Password login
+  if (currentUser === null) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col font-['Prompt',sans-serif]">
+        <LoginModal
+          users={users}
+          onLogin={(user) => {
+            setCurrentUser(user);
+            showToast(`ยินดีต้อนรับเข้าสู่ระบบ: คุณ${user.fullName}`);
+          }}
+        />
       </div>
     );
   }
@@ -634,6 +739,7 @@ export default function App() {
             onAddPatient={handleAddPatient}
             onUpdatePatient={handleUpdatePatient}
             onDeletePatient={handleDeletePatient}
+            onClearAllPatients={handleClearAllPatients}
             onTriggerPatientNotify={handleTriggerPatientNotify}
             initialSelectedPatient={selectedPatientForDetail}
             currentUser={currentUser}
