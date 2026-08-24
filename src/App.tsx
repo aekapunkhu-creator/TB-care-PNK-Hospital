@@ -22,17 +22,20 @@ import {
   INITIAL_USERS
 } from './data/mockData';
 
-import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount } from './types';
+import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount, InvestigationRecord } from './types';
 import { CheckCircle2, AlertCircle, Database } from 'lucide-react';
+import { InvestigationManagement } from './components/InvestigationManagement';
 
 import {
   subscribePatients,
   subscribeContacts,
+  subscribeInvestigations,
   subscribeUsers,
   subscribeLineConfig,
   subscribeLogs,
   saveAllPatientsToFirestore,
   saveAllContactsToFirestore,
+  saveAllInvestigationsToFirestore,
   saveAllUsersToFirestore,
   saveLineConfigToFirestore,
   saveAllLogsToFirestore,
@@ -40,6 +43,8 @@ import {
   deletePatientFromFirestore,
   saveContactToFirestore,
   deleteContactFromFirestore,
+  saveInvestigationToFirestore,
+  deleteInvestigationFromFirestore,
   saveUserToFirestore,
   deleteUserFromFirestore,
   clearCollectionInFirestore,
@@ -52,7 +57,7 @@ const MOCK_CONTACT_IDS = ['CT-101', 'CT-102', 'CT-103', 'CT-104'];
 const MOCK_LOG_IDS = ['LOG-001', 'LOG-002', 'LOG-003'];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'line-gas'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'investigations' | 'line-gas'>('dashboard');
 
   // Application Persistent State
   const [patients, setPatients] = useState<Patient[]>(() => {
@@ -77,6 +82,14 @@ export default function App() {
         safeStorage.setItem('tb_phon_contacts_v3', JSON.stringify(cleaned));
         return cleaned;
       } catch (e) { console.error(e); }
+    }
+    return [];
+  });
+
+  const [investigations, setInvestigations] = useState<InvestigationRecord[]>(() => {
+    const saved = safeStorage.getItem('tb_phon_investigations_v1');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error('Error loading investigations from storage', e); }
     }
     return [];
   });
@@ -153,7 +166,17 @@ export default function App() {
       () => {}
     );
 
-    // 3. Subscribe Users
+    // 3. Subscribe Investigations
+    const unsubInvestigations = subscribeInvestigations(
+      (data) => {
+        if (data) {
+          setInvestigations(data);
+        }
+      },
+      () => {}
+    );
+
+    // 4. Subscribe Users
     const unsubUsers = subscribeUsers(
       (data) => {
         if (data && data.length > 0) {
@@ -165,12 +188,12 @@ export default function App() {
       () => {}
     );
 
-    // 4. Subscribe Line Config
+    // 5. Subscribe Line Config
     const unsubLine = subscribeLineConfig((cfg) => {
       if (cfg) setLineConfig(cfg);
     });
 
-    // 5. Subscribe Logs
+    // 6. Subscribe Logs
     const unsubLogs = subscribeLogs((l) => {
       const cleaned = (l || []).filter(log => !MOCK_LOG_IDS.includes(log.id));
       setLogs(cleaned);
@@ -179,6 +202,7 @@ export default function App() {
     return () => {
       unsubPatients();
       unsubContacts();
+      unsubInvestigations();
       unsubUsers();
       unsubLine();
       unsubLogs();
@@ -199,6 +223,13 @@ export default function App() {
       saveAllContactsToFirestore(contacts);
     }
   }, [contacts]);
+
+  useEffect(() => {
+    safeStorage.setItem('tb_phon_investigations_v1', JSON.stringify(investigations));
+    if (investigations.length > 0) {
+      saveAllInvestigationsToFirestore(investigations);
+    }
+  }, [investigations]);
 
   useEffect(() => {
     safeStorage.setItem('tb_phon_line_config_v2', JSON.stringify(lineConfig));
@@ -481,8 +512,32 @@ export default function App() {
     showToast(`ลบข้อมูลผู้สัมผัส ${target ? target.prefix + target.firstName + ' ' + target.lastName : ''} เรียบร้อยแล้ว`);
   };
 
+  // Investigation CRUD Handlers
+  const handleAddInvestigation = (newInv: InvestigationRecord) => {
+    setInvestigations(prev => [newInv, ...prev]);
+    saveInvestigationToFirestore(newInv);
+    showToast(`บันทึกแบบสอบสวนโรคใหม่สำเร็จ: ${newInv.investigationNumber} (${newInv.prefix}${newInv.firstName} ${newInv.lastName})`);
+  };
+
+  const handleUpdateInvestigation = (updatedInv: InvestigationRecord) => {
+    setInvestigations(prev => prev.map(inv => inv.id === updatedInv.id ? updatedInv : inv));
+    saveInvestigationToFirestore(updatedInv);
+    showToast(`อัปเดตแบบสอบสวนโรคสำเร็จ: ${updatedInv.investigationNumber}`);
+  };
+
+  const handleDeleteInvestigation = (invId: string) => {
+    if (currentUser?.role !== 'Admin') {
+      showToast('สิทธิ์ไม่ถูกต้อง: เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลบแบบสอบสวนโรคได้');
+      return;
+    }
+    const target = investigations.find(i => i.id === invId);
+    setInvestigations(prev => prev.filter(i => i.id !== invId));
+    deleteInvestigationFromFirestore(invId);
+    showToast(`ลบแบบสอบสวนโรค ${target ? target.investigationNumber : ''} เรียบร้อยแล้ว`);
+  };
+
   const handleWipeAllData = async () => {
-    if (!window.confirm('⚠️ คำเตือน: คุณต้องการลบข้อมูลผู้ป่วย, คัดกรองผู้สัมผัส และประวัติการแจ้งเตือนทั้งหมดออกจากระบบและฐานข้อมูล Cloud หรือไม่?\n\n(ข้อมูลจะถูกล้างหมดทั้งในเครื่องและ Cloud ฐานข้อมูลจะว่างเปล่าพร้อมใช้งาน)')) {
+    if (!window.confirm('⚠️ คำเตือน: คุณต้องการลบข้อมูลผู้ป่วย, คัดกรองผู้สัมผัส, แบบสอบสวนโรค และประวัติการแจ้งเตือนทั้งหมดออกจากระบบและฐานข้อมูล Cloud หรือไม่?\n\n(ข้อมูลจะถูกล้างหมดทั้งในเครื่องและ Cloud ฐานข้อมูลจะว่างเปล่าพร้อมใช้งาน)')) {
       return;
     }
     
@@ -491,18 +546,21 @@ export default function App() {
     localStorage.removeItem('tb_phon_patients_v3');
     localStorage.removeItem('tb_phon_contacts_v2');
     localStorage.removeItem('tb_phon_contacts_v3');
+    localStorage.removeItem('tb_phon_investigations_v1');
     localStorage.removeItem('tb_phon_logs_v2');
     localStorage.removeItem('tb_phon_logs_v3');
     
     // Clear React State
     setPatients([]);
     setContacts([]);
+    setInvestigations([]);
     setLogs([]);
     setSelectedPatientForDetail(null);
 
     // Clear Cloud Firestore collections
     await clearCollectionInFirestore('patients');
     await clearCollectionInFirestore('contacts');
+    await clearCollectionInFirestore('investigations');
     await clearCollectionInFirestore('logs');
 
     showToast('ลบข้อมูลทั้งหมดในระบบและฐานข้อมูล Cloud เรียบร้อยแล้ว');
@@ -679,6 +737,7 @@ export default function App() {
         setActiveTab={setActiveTab}
         patientsCount={patients.length}
         contactsCount={contacts.length}
+        investigationsCount={investigations.length}
         missedDosesCount={missedDosesCount}
         onOpenExport={() => setIsExportOpen(true)}
         currentUser={currentUser}
@@ -707,6 +766,7 @@ export default function App() {
           <Dashboard
             patients={patients}
             contacts={contacts}
+            investigations={investigations}
             subdistricts={PHON_NA_KAEO_SUBDISTRICTS}
             onNavigate={setActiveTab}
             onOpenNewPatient={() => setActiveTab('patients')}
@@ -760,6 +820,18 @@ export default function App() {
             onDeleteContact={handleDeleteContact}
             currentUser={currentUser}
             onOpenExcelImportModal={() => setIsExcelImportOpen(true)}
+          />
+        )}
+
+        {activeTab === 'investigations' && (
+          <InvestigationManagement
+            investigations={investigations}
+            patients={patients}
+            onAddInvestigation={handleAddInvestigation}
+            onUpdateInvestigation={handleUpdateInvestigation}
+            onDeleteInvestigation={handleDeleteInvestigation}
+            currentUser={currentUser}
+            onNavigateToContacts={() => setActiveTab('contacts')}
           />
         )}
 

@@ -27,7 +27,7 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount } from '../types';
+import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount, InvestigationRecord } from '../types';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
@@ -123,6 +123,20 @@ export function subscribeLogs(onData: (data: NotificationLog[]) => void) {
       items.push(d.data() as NotificationLog);
     });
     onData(items);
+  });
+}
+
+export function subscribeInvestigations(onData: (data: InvestigationRecord[]) => void, onError?: (err: any) => void) {
+  const colRef = collection(db, 'investigations');
+  return onSnapshot(colRef, (snapshot) => {
+    const items: InvestigationRecord[] = [];
+    snapshot.forEach(d => {
+      items.push(d.data() as InvestigationRecord);
+    });
+    onData(items);
+  }, (err) => {
+    console.error('Investigations snapshot error:', err);
+    if (onError) onError(err);
   });
 }
 
@@ -295,6 +309,51 @@ export async function deleteUserFromFirestore(userId: string) {
     } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error deleting user from firestore', e);
+  }
+}
+
+export async function saveAllInvestigationsToFirestore(investigations: InvestigationRecord[]) {
+  try {
+    const batch = writeBatch(db);
+    investigations.forEach(inv => {
+      const docRef = doc(db, 'investigations', inv.id);
+      batch.set(docRef, inv);
+    });
+    await batch.commit();
+
+    try {
+      const map: Record<string, InvestigationRecord> = {};
+      investigations.forEach(inv => { map[inv.id] = inv; });
+      await rtdbSet(rtdbRef(rtdb, 'investigations'), map);
+    } catch (rtdbErr) {}
+  } catch (e) {
+    console.error('Error saving investigations to firestore', e);
+  }
+}
+
+export async function saveInvestigationToFirestore(investigation: InvestigationRecord) {
+  try {
+    const docRef = doc(db, 'investigations', investigation.id);
+    await setDoc(docRef, investigation);
+
+    try {
+      await rtdbSet(rtdbRef(rtdb, `investigations/${investigation.id}`), investigation);
+    } catch (rtdbErr) {}
+  } catch (e) {
+    console.error('Error saving investigation to firestore', e);
+  }
+}
+
+export async function deleteInvestigationFromFirestore(investigationId: string) {
+  try {
+    const docRef = doc(db, 'investigations', investigationId);
+    await deleteDoc(docRef);
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, `investigations/${investigationId}`));
+    } catch (rtdbErr) {}
+  } catch (e) {
+    console.error('Error deleting investigation from firestore', e);
   }
 }
 

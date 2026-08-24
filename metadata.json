@@ -1,6 +1,6 @@
 {
   "name": "Remix TB-Care โพนนาแก้ว",
-  "description": "ระบบคัดกรอง รักษา ติดตาม และควบคุมโรควัณโรค อำเภอโพนนาแก้ว จังหวัดสกลนคร พร้อม SpotMap และระบบแจ้งเตือน LINE Notify / Apps Script",
+  "description": "ระบบควบคุมและรักษาวัณโรค อำเภอโพนนาแก้ว จังหวัดสกลนคร พร้อมแบบฟอร์มสอบสวนโรคระบาดวิทยา, บทวิเคราะห์ความล่าช้า/ปัจจัยเสี่ยง, ผังเชื่อมโยงการแพร่กระจายเชื้อ (Clusters), SpotMap และระบบแจ้งเตือน LINE Notify",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

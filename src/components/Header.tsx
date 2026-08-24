@@ -1,12 +1,13 @@
 import React from 'react';
-import { LayoutDashboard, MapPin, Users, UserCheck, Bell, FileSpreadsheet, ShieldAlert, UserCog, LogOut, Lock, Trash2 } from 'lucide-react';
+import { LayoutDashboard, MapPin, Users, UserCheck, Bell, FileSpreadsheet, ShieldAlert, UserCog, LogOut, Lock, Trash2, ClipboardList } from 'lucide-react';
 import { UserAccount } from '../types';
 
 interface HeaderProps {
-  activeTab: 'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'line-gas';
-  setActiveTab: (tab: 'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'line-gas') => void;
+  activeTab: 'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'investigations' | 'line-gas';
+  setActiveTab: (tab: 'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'investigations' | 'line-gas') => void;
   patientsCount: number;
   contactsCount: number;
+  investigationsCount?: number;
   missedDosesCount: number;
   onOpenExport: () => void;
   currentUser: UserAccount | null;
@@ -20,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   patientsCount,
   contactsCount,
+  investigationsCount = 0,
   missedDosesCount,
   onOpenExport,
   currentUser,
@@ -201,6 +203,21 @@ export const Header: React.FC<HeaderProps> = ({
             <span>คัดกรองผู้สัมผัสใกล้ชิด</span>
             <span className="ml-1 bg-slate-800 text-slate-300 text-[10px] px-1.5 py-0.2 rounded-full">
               {contactsCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('investigations')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition ${
+              activeTab === 'investigations'
+                ? 'bg-emerald-600 text-white font-semibold shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <ClipboardList className="w-4 h-4" />
+            <span>แบบสอบสวนโรค</span>
+            <span className="ml-1 bg-slate-800 text-slate-300 text-[10px] px-1.5 py-0.2 rounded-full">
+              {investigationsCount}
             </span>
           </button>
 
