@@ -11,6 +11,14 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import {
+  getDatabase,
+  ref as rtdbRef,
+  set as rtdbSet,
+  remove as rtdbRemove,
+  get as rtdbGet,
+  onValue as rtdbOnValue
+} from 'firebase/database';
+import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
@@ -26,6 +34,12 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(
   app,
   firebaseConfig.firestoreDatabaseId || '(default)'
+);
+
+// Firebase Realtime Database
+export const rtdb = getDatabase(
+  app,
+  (firebaseConfig as any).databaseURL || 'https://gen-lang-client-0819425332-default-rtdb.firebaseio.com'
 );
 
 export const auth = getAuth(app);
@@ -121,6 +135,15 @@ export async function saveAllPatientsToFirestore(patients: Patient[]) {
       batch.set(docRef, p);
     });
     await batch.commit();
+
+    // Also sync to Realtime Database
+    try {
+      const patientsMap: Record<string, Patient> = {};
+      patients.forEach(p => { patientsMap[p.id] = p; });
+      await rtdbSet(rtdbRef(rtdb, 'patients'), patientsMap);
+    } catch (rtdbErr) {
+      // Ignored if RTDB rules are currently locked
+    }
   } catch (e) {
     console.error('Error saving patients to firestore', e);
   }
@@ -134,6 +157,12 @@ export async function saveAllContactsToFirestore(contacts: HouseholdContact[]) {
       batch.set(docRef, c);
     });
     await batch.commit();
+
+    try {
+      const contactsMap: Record<string, HouseholdContact> = {};
+      contacts.forEach(c => { contactsMap[c.id] = c; });
+      await rtdbSet(rtdbRef(rtdb, 'contacts'), contactsMap);
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error saving contacts to firestore', e);
   }
@@ -147,6 +176,12 @@ export async function saveAllUsersToFirestore(users: UserAccount[]) {
       batch.set(docRef, u);
     });
     await batch.commit();
+
+    try {
+      const usersMap: Record<string, UserAccount> = {};
+      users.forEach(u => { usersMap[u.id] = u; });
+      await rtdbSet(rtdbRef(rtdb, 'users'), usersMap);
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error saving users to firestore', e);
   }
@@ -156,6 +191,10 @@ export async function saveLineConfigToFirestore(config: LineNotificationConfig) 
   try {
     const docRef = doc(db, 'config', 'lineConfig');
     await setDoc(docRef, config);
+
+    try {
+      await rtdbSet(rtdbRef(rtdb, 'config/lineConfig'), config);
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error saving line config to firestore', e);
   }
@@ -169,6 +208,12 @@ export async function saveAllLogsToFirestore(logs: NotificationLog[]) {
       batch.set(docRef, l);
     });
     await batch.commit();
+
+    try {
+      const logsMap: Record<string, NotificationLog> = {};
+      logs.forEach(l => { logsMap[l.id] = l; });
+      await rtdbSet(rtdbRef(rtdb, 'logs'), logsMap);
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error saving logs to firestore', e);
   }
@@ -179,6 +224,10 @@ export async function savePatientToFirestore(patient: Patient) {
   try {
     const docRef = doc(db, 'patients', patient.id);
     await setDoc(docRef, patient);
+
+    try {
+      await rtdbSet(rtdbRef(rtdb, `patients/${patient.id}`), patient);
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error saving patient to firestore', e);
   }
@@ -188,6 +237,10 @@ export async function deletePatientFromFirestore(patientId: string) {
   try {
     const docRef = doc(db, 'patients', patientId);
     await deleteDoc(docRef);
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, `patients/${patientId}`));
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error deleting patient from firestore', e);
   }
@@ -197,6 +250,10 @@ export async function saveContactToFirestore(contact: HouseholdContact) {
   try {
     const docRef = doc(db, 'contacts', contact.id);
     await setDoc(docRef, contact);
+
+    try {
+      await rtdbSet(rtdbRef(rtdb, `contacts/${contact.id}`), contact);
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error saving contact to firestore', e);
   }
@@ -206,6 +263,10 @@ export async function deleteContactFromFirestore(contactId: string) {
   try {
     const docRef = doc(db, 'contacts', contactId);
     await deleteDoc(docRef);
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, `contacts/${contactId}`));
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error deleting contact from firestore', e);
   }
@@ -215,6 +276,10 @@ export async function saveUserToFirestore(user: UserAccount) {
   try {
     const docRef = doc(db, 'users', user.id);
     await setDoc(docRef, user);
+
+    try {
+      await rtdbSet(rtdbRef(rtdb, `users/${user.id}`), user);
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error saving user to firestore', e);
   }
@@ -224,6 +289,10 @@ export async function deleteUserFromFirestore(userId: string) {
   try {
     const docRef = doc(db, 'users', userId);
     await deleteDoc(docRef);
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, `users/${userId}`));
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error deleting user from firestore', e);
   }
@@ -246,6 +315,13 @@ export async function fetchPatientByIdFromFirestore(idOrHn: string): Promise<Pat
         return p;
       }
     }
+    // 3. Fallback: try RTDB if available
+    try {
+      const rtdbSnap = await rtdbGet(rtdbRef(rtdb, `patients/${idOrHn}`));
+      if (rtdbSnap.exists()) {
+        return rtdbSnap.val() as Patient;
+      }
+    } catch (rtdbErr) {}
     return null;
   } catch (e) {
     console.error('Error fetching patient directly from firestore', e);
@@ -264,6 +340,10 @@ export async function clearCollectionInFirestore(collectionName: string) {
       });
       await batch.commit();
     }
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, collectionName));
+    } catch (rtdbErr) {}
   } catch (e) {
     console.error(`Error clearing collection ${collectionName} in firestore`, e);
   }
