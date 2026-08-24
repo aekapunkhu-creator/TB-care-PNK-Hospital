@@ -772,6 +772,10 @@ export default function App() {
             onOpenNewPatient={() => setActiveTab('patients')}
             onOpenNewContact={() => setActiveTab('contacts')}
             onTriggerQuickNotify={handleQuickNotify}
+            onSelectPatient={p => {
+              setSelectedPatientForDetail(p);
+              setActiveTab('patients');
+            }}
           />
         )}
 

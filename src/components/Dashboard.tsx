@@ -4,10 +4,12 @@ import {
   Users, Activity, CheckCircle2, AlertTriangle, 
   UserPlus, Search, ArrowUpRight, 
   Calendar, CheckSquare, Sparkles, Send,
-  Microscope, Network, BarChart3, ShieldAlert, HeartPulse, Clock
+  Microscope, Network, BarChart3, ShieldAlert, HeartPulse, Clock,
+  Building2, Home
 } from 'lucide-react';
 import { EpidemiologicalAnalysis } from './EpidemiologicalAnalysis';
 import { EpidemiologicalLinkage } from './EpidemiologicalLinkage';
+import { SubdistrictVillageAnalysis } from './SubdistrictVillageAnalysis';
 
 interface DashboardProps {
   patients: Patient[];
@@ -18,6 +20,7 @@ interface DashboardProps {
   onOpenNewPatient: () => void;
   onOpenNewContact: () => void;
   onTriggerQuickNotify: (message: string) => void;
+  onSelectPatient?: (patient: Patient) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -28,10 +31,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onNavigate,
   onOpenNewPatient,
   onOpenNewContact,
-  onTriggerQuickNotify
+  onTriggerQuickNotify,
+  onSelectPatient
 }) => {
   // Sub-view Tab inside Dashboard
-  const [dashboardMode, setDashboardMode] = useState<'overview' | 'epidemiology' | 'linkage'>('overview');
+  const [dashboardMode, setDashboardMode] = useState<'overview' | 'epidemiology' | 'villages' | 'linkage'>('overview');
 
   // Key Metrics
   const totalPatients = patients.length;
@@ -127,6 +131,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
         >
           <Microscope className="w-4 h-4 text-emerald-600" />
           <span>บทวิเคราะห์ทางระบาดวิทยา ({investigations.length})</span>
+        </button>
+
+        <button
+          onClick={() => setDashboardMode('villages')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap ${
+            dashboardMode === 'villages'
+              ? 'bg-white text-emerald-950 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+          }`}
+        >
+          <Building2 className="w-4 h-4 text-emerald-600" />
+          <span>วิเคราะห์รายตำบล-หมู่บ้าน (5 ตำบล 53 หมู่บ้าน)</span>
         </button>
 
         <button
@@ -473,7 +489,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
         />
       )}
 
-      {/* Sub-view: 3. Epidemiological Linkage & Clusters */}
+      {/* Sub-view: 3. Subdistrict & Village Analysis */}
+      {dashboardMode === 'villages' && (
+        <SubdistrictVillageAnalysis
+          investigations={investigations}
+          patients={patients}
+          contacts={contacts}
+          subdistricts={subdistricts}
+          onSelectPatient={onSelectPatient}
+          onNavigateToSpotMap={() => onNavigate('spotmap')}
+          onNavigateToInvestigations={() => onNavigate('investigations')}
+        />
+      )}
+
+      {/* Sub-view: 4. Epidemiological Linkage & Clusters */}
       {dashboardMode === 'linkage' && (
         <EpidemiologicalLinkage
           investigations={investigations}

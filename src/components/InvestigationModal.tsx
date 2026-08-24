@@ -332,42 +332,130 @@ export const InvestigationModal: React.FC<InvestigationModalProps> = ({
               </div>
 
               {/* Investigator Meta */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-                <div>
-                  <label className="block text-slate-600 font-medium mb-1">เลขที่แบบสอบสวน</label>
-                  <input
-                    type="text"
-                    value={formData.investigationNumber}
-                    onChange={e => setFormData({...formData, investigationNumber: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800"
-                  />
+              <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
+                    <UserCheck className="w-4 h-4 text-emerald-700" />
+                    <span>ข้อมูลผู้ดำเนินการสอบสวนโรค (Investigator Profile)</span>
+                  </h5>
+                  <span className="text-[11px] text-emerald-700 font-medium">สามารถแก้ไขข้อมูลและตำแหน่งได้ทุกจุด</span>
                 </div>
-                <div>
-                  <label className="block text-slate-600 font-medium mb-1">วันที่สอบสวน</label>
-                  <input
-                    type="date"
-                    value={formData.investigationDate}
-                    onChange={e => setFormData({...formData, investigationDate: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">เลขที่แบบสอบสวน</label>
+                    <input
+                      type="text"
+                      value={formData.investigationNumber}
+                      onChange={e => setFormData({...formData, investigationNumber: e.target.value})}
+                      placeholder="เช่น INV-2569-001"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">วันที่ดำเนินการสอบสวน</label>
+                    <input
+                      type="date"
+                      value={formData.investigationDate}
+                      onChange={e => setFormData({...formData, investigationDate: e.target.value})}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">ชื่อ-สกุล ผู้สอบสวนโรค <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.investigatorName}
+                      onChange={e => setFormData({...formData, investigatorName: e.target.value})}
+                      placeholder="เช่น นายแพทย์สมชาย หรือ นางสาวสมหญิง"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-slate-600 font-medium mb-1">ชื่อผู้สอบสวนโรค</label>
-                  <input
-                    type="text"
-                    value={formData.investigatorName}
-                    onChange={e => setFormData({...formData, investigatorName: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-medium mb-1">หน่วยงานผู้สอบสวน</label>
-                  <input
-                    type="text"
-                    value={formData.investigatorUnit}
-                    onChange={e => setFormData({...formData, investigatorUnit: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">ตำแหน่งผู้สอบสวนโรค <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.investigatorRole}
+                      onChange={e => setFormData({...formData, investigatorRole: e.target.value})}
+                      placeholder="เช่น นักวิชาการสาธารณสุขชำนาญการ"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    />
+                    {/* Quick position chips */}
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {[
+                        'นักวิชาการสาธารณสุขชำนาญการ',
+                        'นักวิชาการสาธารณสุขปฏิบัติการ',
+                        'พยาบาลวิชาชีพชำนาญการ',
+                        'นายแพทย์ปฏิบัติการ',
+                        'เจ้าพนักงานสาธารณสุข',
+                        'อสม. พี่เลี้ยง'
+                      ].map(role => (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => setFormData({...formData, investigatorRole: role})}
+                          className={`text-[10px] px-2 py-0.5 rounded-md border transition ${
+                            formData.investigatorRole === role
+                              ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400'
+                          }`}
+                        >
+                          {role}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">หน่วยงาน / สถานพยาบาล</label>
+                    <input
+                      type="text"
+                      value={formData.investigatorUnit}
+                      onChange={e => setFormData({...formData, investigatorUnit: e.target.value})}
+                      placeholder="เช่น โรงพยาบาลโพนนาแก้ว"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {[
+                        'โรงพยาบาลโพนนาแก้ว',
+                        'สสอ.โพนนาแก้ว',
+                        'รพ.สต.บ้านใหม่ไชยา',
+                        'รพ.สต.บ้านโพนบก',
+                        'รพ.สต.บ้านน้ำผุ',
+                        'รพ.สต.โพนแคน้อย',
+                        'รพ.สต.บ้านโนนสามัคคี',
+                        'รพ.สต.บ้านนาแก้วน้อย',
+                        'รพ.สต.บ้านใหม่หนองผือ'
+                      ].slice(0, 4).map(unit => (
+                        <button
+                          key={unit}
+                          type="button"
+                          onClick={() => setFormData({...formData, investigatorUnit: unit})}
+                          className={`text-[10px] px-1.5 py-0.5 rounded-md border transition ${
+                            formData.investigatorUnit === unit
+                              ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400'
+                          }`}
+                        >
+                          {unit}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">เบอร์โทรศัพท์ติดต่อผู้สอบสวน</label>
+                    <input
+                      type="text"
+                      value={formData.investigatorPhone}
+                      onChange={e => setFormData({...formData, investigatorPhone: e.target.value})}
+                      placeholder="เช่น 042-123-456 หรือ 081-xxx-xxxx"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -506,13 +594,117 @@ export const InvestigationModal: React.FC<InvestigationModalProps> = ({
                 </div>
               </div>
 
-              {/* Address While Ill */}
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
-                <h5 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>ที่อยู่ขณะป่วย (อ.โพนนาแก้ว จ.สกลนคร)</span>
-                </h5>
+              {/* Address While Ill & GPS */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h5 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-emerald-600" />
+                    <span>ที่อยู่ขณะป่วยและพิกัดแผนที่ (อ.โพนนาแก้ว จ.สกลนคร)</span>
+                  </h5>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          pos => {
+                            setFormData({
+                              ...formData,
+                              lat: parseFloat(pos.coords.latitude.toFixed(6)),
+                              lng: parseFloat(pos.coords.longitude.toFixed(6))
+                            });
+                          },
+                          err => {
+                            alert('ไม่สามารถดึงพิกัด GPS ได้ กรุณาเปิดการอนุญาตตำแหน่งบนอุปกรณ์');
+                          }
+                        );
+                      } else {
+                        alert('อุปกรณ์ของคุณไม่รองรับการดึงพิกัด Geolocation');
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition self-start sm:self-auto"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>ดึงพิกัด GPS อัตโนมัติจากอุปกรณ์</span>
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <label className="block text-slate-600 font-medium mb-1">ตำบล <span className="text-red-500">*</span></label>
+                    <select
+                      value={formData.subdistrict}
+                      onChange={e => {
+                        const newSub = e.target.value;
+                        const subInfo = PHON_NA_KAEO_SUBDISTRICTS.find(s => s.name === newSub);
+                        setFormData({
+                          ...formData, 
+                          subdistrict: newSub,
+                          lat: subInfo?.lat || formData.lat,
+                          lng: subInfo?.lng || formData.lng
+                        });
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                    >
+                      {PHON_NA_KAEO_SUBDISTRICTS.map(sd => (
+                        <option key={sd.code} value={sd.name}>{sd.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-medium mb-1">เลือกหมู่บ้านในตำบล</label>
+                    <select
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (!val) return;
+                        const match = val.match(/หมู่ที่\s*(\d+)\s*(.+)/);
+                        if (match) {
+                          setFormData({
+                            ...formData,
+                            villageNo: match[1],
+                            villageName: match[2].trim()
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            villageName: val
+                          });
+                        }
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800"
+                    >
+                      <option value="">-- เลือกหมู่บ้านด่วน --</option>
+                      {PHON_NA_KAEO_SUBDISTRICTS.find(s => s.name === formData.subdistrict)?.villages.map(v => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-medium mb-1">หมู่ที่</label>
+                    <input
+                      type="text"
+                      value={formData.villageNo}
+                      onChange={e => setFormData({...formData, villageNo: e.target.value})}
+                      placeholder="เช่น 1"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-medium mb-1">ชื่อหมู่บ้าน</label>
+                    <input
+                      type="text"
+                      value={formData.villageName}
+                      onChange={e => setFormData({...formData, villageName: e.target.value})}
+                      placeholder="เช่น บ้านอ้อมแก้วใหญ่"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
                   <div>
                     <label className="block text-slate-600 font-medium mb-1">บ้านเลขที่</label>
                     <input
@@ -520,40 +712,30 @@ export const InvestigationModal: React.FC<InvestigationModalProps> = ({
                       value={formData.houseNo}
                       onChange={e => setFormData({...formData, houseNo: e.target.value})}
                       placeholder="เช่น 12/1"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 font-medium mb-1">หมู่ที่</label>
+                    <label className="block text-slate-600 font-medium mb-1">ละติจูด (Latitude)</label>
                     <input
-                      type="text"
-                      value={formData.villageNo}
-                      onChange={e => setFormData({...formData, villageNo: e.target.value})}
-                      placeholder="เช่น 4"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                      type="number"
+                      step="any"
+                      value={formData.lat || ''}
+                      onChange={e => setFormData({...formData, lat: parseFloat(e.target.value) || undefined})}
+                      placeholder="เช่น 17.085123"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 font-medium mb-1">ชื่อหมู่บ้าน</label>
+                    <label className="block text-slate-600 font-medium mb-1">ลองจิจูด (Longitude)</label>
                     <input
-                      type="text"
-                      value={formData.villageName}
-                      onChange={e => setFormData({...formData, villageName: e.target.value})}
-                      placeholder="เช่น บ้านโพน"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                      type="number"
+                      step="any"
+                      value={formData.lng || ''}
+                      onChange={e => setFormData({...formData, lng: parseFloat(e.target.value) || undefined})}
+                      placeholder="เช่น 104.295456"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 font-medium mb-1">ตำบล</label>
-                    <select
-                      value={formData.subdistrict}
-                      onChange={e => setFormData({...formData, subdistrict: e.target.value})}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold"
-                    >
-                      {PHON_NA_KAEO_SUBDISTRICTS.map(sd => (
-                        <option key={sd.code} value={sd.name}>{sd.name}</option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               </div>

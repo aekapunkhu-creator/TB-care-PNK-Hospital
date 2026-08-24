@@ -57,14 +57,15 @@ export const InvestigationManagement: React.FC<InvestigationManagementProps> = (
   // Filtered investigations
   const filteredInvestigations = useMemo(() => {
     return investigations.filter(inv => {
-      // Search matches HN, Name, Inv Number, Investigator
+      // Search matches HN, Name, Inv Number, Investigator, Role, Village
       const matchesSearch = 
         !searchTerm ||
         inv.hn.toLowerCase().includes(searchTerm.toLowerCase()) ||
         `${inv.firstName} ${inv.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
         inv.investigationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.investigatorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.villageName.toLowerCase().includes(searchTerm.toLowerCase());
+        (inv.investigatorName && inv.investigatorName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (inv.investigatorRole && inv.investigatorRole.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (inv.villageName && inv.villageName.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesSubdistrict = selectedSubdistrict === 'all' || inv.subdistrict === selectedSubdistrict;
       const matchesStatus = selectedStatus === 'all' || inv.status === selectedStatus;
@@ -353,8 +354,11 @@ export const InvestigationManagement: React.FC<InvestigationManagementProps> = (
                       </td>
 
                       <td className="px-4 py-3.5">
-                        <div className="font-medium text-slate-800">{inv.investigatorName || '-'}</div>
-                        <div className="text-[11px] text-slate-500 truncate max-w-[140px]">
+                        <div className="font-semibold text-slate-900">{inv.investigatorName || '-'}</div>
+                        {inv.investigatorRole && (
+                          <div className="text-[10px] text-emerald-700 font-medium">{inv.investigatorRole}</div>
+                        )}
+                        <div className="text-[11px] text-slate-500 truncate max-w-[150px]">
                           {inv.investigatorUnit || 'รพ.โพนนาแก้ว'}
                         </div>
                       </td>
