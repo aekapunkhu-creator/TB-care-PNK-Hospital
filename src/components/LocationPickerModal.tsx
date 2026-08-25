@@ -1,6 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
-import { MapPin, X, Check, Navigation, Compass, Crosshair, HelpCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { 
+  APIProvider, 
+  Map, 
+  AdvancedMarker, 
+  useMap 
+} from '@vis.gl/react-google-maps';
+import { LeafletLocationPicker } from './LeafletLocationPicker';
+import { 
+  MapPin, X, Check, Navigation, Compass, Crosshair, HelpCircle, ExternalLink 
+} from 'lucide-react';
 import { PHON_NA_KAEO_SUBDISTRICTS } from '../data/mockData';
 
 interface LocationPickerModalProps {
@@ -13,6 +21,20 @@ interface LocationPickerModalProps {
   onSelectLocation: (lat: number, lng: number) => void;
 }
 
+// Controller to smoothly pan when coordinates change
+const ModalMapController: React.FC<{
+  center: { lat: number; lng: number };
+}> = ({ center }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    map.panTo(center);
+  }, [map, center.lat, center.lng]);
+
+  return null;
+};
+
 export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   isOpen,
   onClose,
@@ -22,24 +44,22 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   patientName,
   onSelectLocation,
 }) => {
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const leafletMapRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
   // Default fallback: Phon Na Kaeo Center
-  const defaultLat = initialLat && !isNaN(initialLat) && initialLat !== 0 ? initialLat : 17.065;
-  const defaultLng = initialLng && !isNaN(initialLng) && initialLng !== 0 ? initialLng : 104.288;
+  const defaultLat = initialLat && !isNaN(initialLat) && initialLat !== 0 ? initialLat : 17.2225884;
+  const defaultLng = initialLng && !isNaN(initialLng) && initialLng !== 0 ? initialLng : 104.3093759;
 
-  const [lat, setLat] = useState<number>(defaultLat);
-  const [lng, setLng] = useState<number>(defaultLng);
+  const [lat, setLat] = useState<number>(Number(defaultLat.toFixed(6)));
+  const [lng, setLng] = useState<number>(Number(defaultLng.toFixed(6)));
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
   // Reset when modal opens with new initial props
   useEffect(() => {
     if (isOpen) {
-      let startLat = initialLat && !isNaN(initialLat) && initialLat !== 0 ? initialLat : 17.065;
-      let startLng = initialLng && !isNaN(initialLng) && initialLng !== 0 ? initialLng : 104.288;
+      let startLat = initialLat && !isNaN(initialLat) && initialLat !== 0 ? initialLat : 17.2225884;
+      let startLng = initialLng && !isNaN(initialLng) && initialLng !== 0 ? initialLng : 104.3093759;
 
       // If no initial lat/lng provided but subdistrict is selected, center on subdistrict
       if ((!initialLat || initialLat === 0) && subdistrictName) {
@@ -56,94 +76,10 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
     }
   }, [isOpen, initialLat, initialLng, subdistrictName]);
 
-  // Initialize and handle Leaflet map inside modal
-  useEffect(() => {
-    if (!isOpen || !mapContainerRef.current) return;
-
-    // Destroy existing map instance if present
-    if (leafletMapRef.current) {
-      leafletMapRef.current.remove();
-      leafletMapRef.current = null;
-    }
-
-    const currentLat = lat || 17.065;
-    const currentLng = lng || 104.288;
-
-    const map = L.map(mapContainerRef.current, {
-      center: [currentLat, currentLng],
-      zoom: 15,
-      zoomControl: true,
-    });
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap | TB-Care โพนนาแก้ว',
-    }).addTo(map);
-
-    // Custom Icon for Patient House Pin
-    const customIcon = L.divIcon({
-      className: 'custom-house-pin',
-      html: `
-        <div style="position: relative; width: 36px; height: 36px; display: flex; items-center: center; justify-content: center;">
-          <div style="position: absolute; width: 36px; height: 36px; background-color: #ef4444; opacity: 0.3; border-radius: 50%; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          <div style="position: relative; width: 32px; height: 32px; background-color: #dc2626; border: 3px solid #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>
-          </div>
-        </div>
-      `,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
-    });
-
-    const marker = L.marker([currentLat, currentLng], {
-      draggable: true,
-      icon: customIcon,
-    }).addTo(map);
-
-    markerRef.current = marker;
-
-    // Handle marker drag
-    marker.on('dragend', () => {
-      const position = marker.getLatLng();
-      setLat(Number(position.lat.toFixed(6)));
-      setLng(Number(position.lng.toFixed(6)));
-    });
-
-    // Handle map click to re-position pin
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      const clickLat = Number(e.latlng.lat.toFixed(6));
-      const clickLng = Number(e.latlng.lng.toFixed(6));
-      setLat(clickLat);
-      setLng(clickLng);
-      marker.setLatLng([clickLat, clickLng]);
-    });
-
-    leafletMapRef.current = map;
-
-    // Force map resize recalculation on open
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
-
-    return () => {
-      if (leafletMapRef.current) {
-        leafletMapRef.current.remove();
-        leafletMapRef.current = null;
-      }
-    };
-  }, [isOpen]);
-
-  // Sync marker position when inputs change manually
+  // Sync coordinates manually
   const handleUpdateCoordinates = (newLat: number, newLng: number) => {
-    setLat(newLat);
-    setLng(newLng);
-    if (markerRef.current && leafletMapRef.current) {
-      markerRef.current.setLatLng([newLat, newLng]);
-      leafletMapRef.current.panTo([newLat, newLng]);
-    }
+    setLat(Number(newLat.toFixed(6)));
+    setLng(Number(newLng.toFixed(6)));
   };
 
   // Get current GPS position from browser
@@ -179,24 +115,30 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-['Prompt',sans-serif]">
+      <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-200">
+        
         {/* Modal Header */}
-        <div className="px-5 py-4 bg-gradient-to-r from-blue-700 to-indigo-800 text-white flex items-center justify-between shadow-sm">
+        <div className="px-5 py-4 bg-gradient-to-r from-emerald-700 via-teal-800 to-slate-900 text-white flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/15 rounded-xl">
-              <MapPin className="w-5 h-5 text-amber-300" />
+            <div className="p-2.5 bg-white/15 rounded-2xl border border-white/20">
+              <MapPin className="w-5 h-5 text-amber-300 animate-bounce" />
             </div>
             <div>
-              <h3 className="font-bold text-lg leading-tight">ปักหมุดพิกัดตำแหน่งบ้านผู้ป่วย</h3>
-              <p className="text-xs text-blue-100">
-                {patientName ? `ผู้ป่วย: ${patientName}` : 'คลิกบนแผนที่ หรือลากหมุดไปยังตำแหน่งบ้านที่ถูกต้อง'}
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base sm:text-lg leading-tight">ปักหมุดพิกัดตำแหน่งบ้านด้วย Google Maps</h3>
+                <span className="text-[10px] bg-white/20 text-emerald-100 px-2 py-0.5 rounded-full font-mono">
+                  Google Maps
+                </span>
+              </div>
+              <p className="text-xs text-emerald-100">
+                {patientName ? `ผู้ป่วย: ${patientName}` : 'คลิกบนแผนที่ หรือลากหมุดแดงไปยังหลังคาบ้านที่ต้องการ'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition"
+            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -206,7 +148,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
           {/* Subdistrict Quick Jump */}
           <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
-            <Compass className="w-4 h-4 text-blue-600" />
+            <Compass className="w-4 h-4 text-emerald-600" />
             <span>เลื่อนไปยังตำบล:</span>
             <select
               onChange={(e) => {
@@ -216,9 +158,9 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                   handleUpdateCoordinates(found.lat, found.lng);
                 }
               }}
-              className="p-1.5 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 font-semibold focus:ring-2 focus:ring-blue-500"
+              className="p-1.5 rounded-xl bg-white border border-slate-300 text-xs text-slate-800 font-semibold focus:ring-2 focus:ring-emerald-500 cursor-pointer"
             >
-              <option value="">-- เลือกตำบล --</option>
+              <option value="">-- เลือกตำบลใน อ.โพนนาแก้ว --</option>
               {PHON_NA_KAEO_SUBDISTRICTS.map((s) => (
                 <option key={s.code} value={s.name}>
                   {s.name}
@@ -227,15 +169,17 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             </select>
           </div>
 
-          {/* GPS Button */}
-          <button
-            onClick={handleGetGPS}
-            disabled={gpsLoading}
-            className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
-          >
-            <Crosshair className={`w-4 h-4 ${gpsLoading ? 'animate-spin' : ''}`} />
-            <span>{gpsLoading ? 'กำลังค้นหาตำแหน่ง GPS...' : 'ใช้ตำแหน่ง GPS ปัจจุบัน'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* GPS Button */}
+            <button
+              onClick={handleGetGPS}
+              disabled={gpsLoading}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
+            >
+              <Crosshair className={`w-4 h-4 ${gpsLoading ? 'animate-spin' : ''}`} />
+              <span>{gpsLoading ? 'กำลังค้นหาพิกัด GPS...' : 'ใช้พิกัด GPS ปัจจุบัน'}</span>
+            </button>
+          </div>
         </div>
 
         {gpsError && (
@@ -245,13 +189,64 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         )}
 
         {/* Map Container */}
-        <div className="relative flex-1 min-h-[320px] sm:min-h-[380px] bg-slate-100">
-          <div ref={mapContainerRef} className="w-full h-full min-h-[320px] sm:min-h-[380px] z-10" />
+        <div className="relative flex-1 min-h-[320px] sm:min-h-[400px] bg-slate-100">
+          {apiKey && apiKey.trim() !== '' ? (
+            <APIProvider apiKey={apiKey} language="th" region="TH">
+              <Map
+                id="modal-location-picker-map"
+                defaultCenter={{ lat, lng }}
+                defaultZoom={16}
+                mapId="DEMO_MAP_ID"
+                internalUsageAttributionIds={["gmp_mcp_codeassist_v1_aistudio"]}
+                gestureHandling="greedy"
+                fullscreenControl={true}
+                streetViewControl={true}
+                mapTypeControl={true}
+                className="w-full h-full min-h-[320px] sm:min-h-[400px]"
+                onClick={(e) => {
+                  if (e.detail?.latLng) {
+                    const clickLat = Number(e.detail.latLng.lat.toFixed(6));
+                    const clickLng = Number(e.detail.latLng.lng.toFixed(6));
+                    handleUpdateCoordinates(clickLat, clickLng);
+                  }
+                }}
+              >
+                <ModalMapController center={{ lat, lng }} />
+
+                <AdvancedMarker
+                  position={{ lat, lng }}
+                  draggable={true}
+                  onDragEnd={(e) => {
+                    if (e.latLng) {
+                      const dragLat = Number(e.latLng.lat.toFixed(6));
+                      const dragLng = Number(e.latLng.lng.toFixed(6));
+                      handleUpdateCoordinates(dragLat, dragLng);
+                    }
+                  }}
+                  title="ลากหมุดเพื่อปรับตำแหน่งบ้าน"
+                >
+                  <div className="relative flex items-center justify-center cursor-grab active:cursor-grabbing">
+                    <div className="absolute w-10 h-10 bg-red-500 opacity-30 rounded-full animate-ping pointer-events-none" />
+                    <div className="w-9 h-9 rounded-full bg-red-600 border-3 border-white shadow-xl flex items-center justify-center text-white">
+                      <MapPin className="w-5 h-5 fill-white text-white" />
+                    </div>
+                  </div>
+                </AdvancedMarker>
+              </Map>
+            </APIProvider>
+          ) : (
+            <LeafletLocationPicker
+              lat={lat}
+              lng={lng}
+              onUpdateCoordinates={handleUpdateCoordinates}
+              className="w-full h-full min-h-[320px] sm:min-h-[400px]"
+            />
+          )}
 
           {/* Help Overlay Badge */}
-          <div className="absolute top-3 right-3 z-20 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md text-xs font-medium text-slate-700 flex items-center gap-1.5 pointer-events-none">
-            <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
-            <span>คลิกพื้นที่ หรือลากหมุดแดงเพื่อปรับตำแหน่ง</span>
+          <div className="absolute top-3 right-3 z-[1000] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md text-xs font-medium text-slate-700 flex items-center gap-1.5 pointer-events-none">
+            <HelpCircle className="w-3.5 h-3.5 text-emerald-600" />
+            <span>คลิกบนแผนที่ หรือลากหมุดแดงไปยังหลังคาบ้าน</span>
           </div>
         </div>
 
@@ -262,36 +257,32 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               <label className="block text-xs font-bold text-slate-600 mb-1">
                 Latitude (ละติจูด N)
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="0.000001"
-                  value={lat}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    if (!isNaN(val)) handleUpdateCoordinates(val, lng);
-                  }}
-                  className="w-full p-2 pl-3 pr-2 rounded-xl bg-white border border-slate-300 font-mono text-sm font-semibold text-blue-900 focus:ring-2 focus:ring-blue-500 shadow-inner"
-                />
-              </div>
+              <input
+                type="number"
+                step="0.000001"
+                value={lat}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  if (!isNaN(val)) handleUpdateCoordinates(val, lng);
+                }}
+                className="w-full p-2.5 rounded-xl bg-white border border-slate-300 font-mono text-sm font-bold text-emerald-900 focus:ring-2 focus:ring-emerald-500 shadow-inner"
+              />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1">
                 Longitude (ลองจิจูด E)
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="0.000001"
-                  value={lng}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    if (!isNaN(val)) handleUpdateCoordinates(lat, val);
-                  }}
-                  className="w-full p-2 pl-3 pr-2 rounded-xl bg-white border border-slate-300 font-mono text-sm font-semibold text-blue-900 focus:ring-2 focus:ring-blue-500 shadow-inner"
-                />
-              </div>
+              <input
+                type="number"
+                step="0.000001"
+                value={lng}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  if (!isNaN(val)) handleUpdateCoordinates(lat, val);
+                }}
+                className="w-full p-2.5 rounded-xl bg-white border border-slate-300 font-mono text-sm font-bold text-emerald-900 focus:ring-2 focus:ring-emerald-500 shadow-inner"
+              />
             </div>
           </div>
 
@@ -304,7 +295,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             </button>
             <button
               onClick={handleSave}
-              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-blue-200 transition"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-200 transition"
             >
               <Check className="w-4 h-4" />
               <span>บันทึกพิกัดตำแหน่ง</span>

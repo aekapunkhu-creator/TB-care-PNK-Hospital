@@ -213,38 +213,29 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
     return chunks;
   }, [selectedPatients]);
 
-  // Robust LINE / Share Handler (Prevents 414 Request-URI Too Large)
+  // Robust LINE / Share Handler (Direct LINE App + Universal Link + Clipboard Safe Copy)
   const executeSafeShare = async (text: string, title = 'ปักหมุดพิกัดบ้านผู้ป่วยวัณโรค') => {
     if (!text) return;
 
-    // 1. Try Native Web Share API first (Best for Mobile: Zero 414 errors, supports unlimited text!)
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          text: text
-        });
-        return;
-      } catch (err: any) {
-        // If user cancelled sharing sheet, just return
-        if (err?.name === 'AbortError') return;
-        console.warn('Web Share API error, falling back to clipboard & direct line link:', err);
+    // Failsafe: Always copy to clipboard first so the user never loses the message
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
       }
-    }
+    } catch (_) {}
 
-    // 2. Check encoded length for LINE URL scheme
+    // Check encoded length for LINE URL scheme
     const encLength = encodeURIComponent(text).length;
     
-    // If URL is safe size (< 1200 characters), we can open LINE URL directly
-    if (encLength < 1200) {
+    // If URL is within safe character limit (< 1500 characters), open LINE URL directly
+    if (encLength < 1500) {
       const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
       window.open(lineUrl, '_blank');
       return;
     }
 
-    // 3. If URL is TOO LARGE (which causes 414 Request-URI Too Large):
+    // If URL is TOO LARGE (which causes 414 Request-URI Too Large):
     // Auto-copy full text to clipboard and guide user to paste in LINE
-    await navigator.clipboard.writeText(text);
     setCopiedBatch(true);
     setShowCopyNoticeModal(true);
     setTimeout(() => setCopiedBatch(false), 3000);

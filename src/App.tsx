@@ -8,6 +8,7 @@ import { LineAppsScript } from './components/LineAppsScript';
 import { ExportModal } from './components/ExportModal';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { ShareLocationLinkModal } from './components/ShareLocationLinkModal';
+import { LineSendModal } from './components/LineSendModal';
 import { PublicLocationSubmitView } from './components/PublicLocationSubmitView';
 import { LocationEmailLogin } from './components/LocationEmailLogin';
 import { LoginModal } from './components/LoginModal';
@@ -260,6 +261,9 @@ export default function App() {
   const [isShareLocationOpen, setIsShareLocationOpen] = useState(false);
   const [shareLocationTargetPatient, setShareLocationTargetPatient] = useState<Patient | null>(null);
   const [shareLocationTargetPatients, setShareLocationTargetPatients] = useState<Patient[] | null>(null);
+  const [isLineSendModalOpen, setIsLineSendModalOpen] = useState(false);
+  const [lineSendTargetPatient, setLineSendTargetPatient] = useState<Patient | null>(null);
+  const [lineSendTargetPatients, setLineSendTargetPatients] = useState<Patient[] | undefined>(undefined);
   const [publicPinningPatient, setPublicPinningPatient] = useState<Patient | null>(null);
   const [selectedPatientForDetail, setSelectedPatientForDetail] = useState<Patient | null>(null);
 
@@ -592,40 +596,21 @@ export default function App() {
     showToast('ลบข้อมูลทั้งหมดในระบบและฐานข้อมูล Cloud เรียบร้อยแล้ว');
   };
 
-  const handleTriggerPatientNotify = async (patient: Patient) => {
-    const message = `💊 [เตือนรับประทานยา DOTS]\nเรียน คุณ${patient.firstName} ${patient.lastName} (HN: ${patient.hn})\nได้เวลาทานยาต้านวัณโรคสูตร ${patient.regimen} ประจำวันแล้วครับ\nอสม.ผู้ดูแล: ${patient.dotsSupervisorName} (${patient.dotsSupervisorPhone})`;
+  const handleAddLog = (log: NotificationLog) => {
+    setLogs(prev => [log, ...prev]);
+  };
 
-    try {
-      const res = await fetch('/api/line-notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: lineConfig.token,
-          message
-        })
-      });
+  const handleTriggerPatientNotify = (patient: Patient) => {
+    setLineSendTargetPatient(patient);
+    setLineSendTargetPatients(undefined);
+    setIsLineSendModalOpen(true);
+  };
 
-      const data = await res.json();
-      if (data.success) {
-        showToast(`ส่งข้อความเตือนคุณ ${patient.firstName} ผ่าน LINE Notify เรียบร้อยแล้ว`);
-      } else {
-        showToast(`ส่งการเตือนเข้ากลุ่ม LINE อ.โพนนาแก้ว (โหมดจำลองระบบ)`);
-      }
-    } catch {
-      showToast(`ส่งการเตือนเข้ากลุ่ม LINE อ.โพนนาแก้ว (โหมดจำลองระบบ)`);
-    }
-
-    setLogs(prev => [
-      {
-        id: `LOG-${Date.now()}`,
-        timestamp: new Date().toLocaleString('th-TH'),
-        type: 'daily_dots',
-        targetName: `${patient.prefix}${patient.firstName} ${patient.lastName} (${patient.hn})`,
-        message,
-        status: 'sent'
-      },
-      ...prev
-    ]);
+  const handleTriggerBulkNotify = (targetPatients: Patient[]) => {
+    if (targetPatients.length === 0) return;
+    setLineSendTargetPatients(targetPatients);
+    setLineSendTargetPatient(targetPatients[0] || null);
+    setIsLineSendModalOpen(true);
   };
 
   const handleQuickNotify = (message: string) => {
@@ -840,6 +825,7 @@ export default function App() {
             onDeletePatient={handleDeletePatient}
             onClearAllPatients={handleClearAllPatients}
             onTriggerPatientNotify={handleTriggerPatientNotify}
+            onTriggerBulkNotify={handleTriggerBulkNotify}
             initialSelectedPatient={selectedPatientForDetail}
             currentUser={currentUser}
             onOpenExcelImportModal={() => setIsExcelImportOpen(true)}
@@ -872,6 +858,7 @@ export default function App() {
           <InvestigationManagement
             investigations={investigations}
             patients={patients}
+            contacts={contacts}
             onAddInvestigation={handleAddInvestigation}
             onUpdateInvestigation={handleUpdateInvestigation}
             onDeleteInvestigation={handleDeleteInvestigation}
@@ -947,6 +934,26 @@ export default function App() {
           if (found) {
             setPublicPinningPatient(found);
           }
+        }}
+      />
+
+      {/* LINE Send Notification Modal */}
+      <LineSendModal
+        isOpen={isLineSendModalOpen}
+        onClose={() => {
+          setIsLineSendModalOpen(false);
+          setLineSendTargetPatient(null);
+          setLineSendTargetPatients(undefined);
+        }}
+        patient={lineSendTargetPatient}
+        patientsList={lineSendTargetPatients}
+        lineConfig={lineConfig}
+        onAddLog={handleAddLog}
+        onShowToast={showToast}
+        onOpenShareLocationModal={(p) => {
+          setIsLineSendModalOpen(false);
+          setShareLocationTargetPatient(p || null);
+          setIsShareLocationOpen(true);
         }}
       />
 

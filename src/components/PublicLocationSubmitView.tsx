@@ -1,10 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
+import React, { useEffect, useState } from 'react';
+import { 
+  APIProvider, 
+  Map, 
+  AdvancedMarker, 
+  useMap 
+} from '@vis.gl/react-google-maps';
+import { LeafletLocationPicker } from './LeafletLocationPicker';
 import { Patient } from '../types';
 import { 
   MapPin, CheckCircle2, Crosshair, Navigation, HelpCircle, 
   Send, ShieldCheck, CheckCircle, AlertCircle, Compass, Building2, Check,
-  Users, ChevronRight, Sparkles, ArrowRight
+  Users, ChevronRight, Sparkles, ArrowRight, ExternalLink
 } from 'lucide-react';
 
 interface PublicLocationSubmitViewProps {
@@ -17,6 +23,20 @@ interface PublicLocationSubmitViewProps {
   onLogoutReporter?: () => void;
 }
 
+// Controller to smoothly pan when coordinates change
+const PublicMapController: React.FC<{
+  center: { lat: number; lng: number };
+}> = ({ center }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    map.panTo(center);
+  }, [map, center.lat, center.lng]);
+
+  return null;
+};
+
 export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> = ({
   patient,
   batchPatients,
@@ -26,12 +46,10 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
   onClosePublicView,
   onLogoutReporter
 }) => {
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const leafletMapRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
-  const initialLat = patient.lat && patient.lat !== 0 ? patient.lat : 17.06520;
-  const initialLng = patient.lng && patient.lng !== 0 ? patient.lng : 104.28850;
+  const initialLat = patient.lat && patient.lat !== 0 ? patient.lat : 17.2225884;
+  const initialLng = patient.lng && patient.lng !== 0 ? patient.lng : 104.3093759;
 
   const [lat, setLat] = useState<number>(Number(initialLat.toFixed(6)));
   const [lng, setLng] = useState<number>(Number(initialLng.toFixed(6)));
@@ -44,16 +62,11 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
 
   // Update lat/lng whenever active patient changes
   useEffect(() => {
-    const curLat = patient.lat && patient.lat !== 0 ? patient.lat : 17.06520;
-    const curLng = patient.lng && patient.lng !== 0 ? patient.lng : 104.28850;
+    const curLat = patient.lat && patient.lat !== 0 ? patient.lat : 17.2225884;
+    const curLng = patient.lng && patient.lng !== 0 ? patient.lng : 104.3093759;
     setLat(Number(curLat.toFixed(6)));
     setLng(Number(curLng.toFixed(6)));
     setIsSubmitted(submittedIds.includes(patient.id));
-
-    if (leafletMapRef.current && markerRef.current) {
-      leafletMapRef.current.setView([curLat, curLng], 16);
-      markerRef.current.setLatLng([curLat, curLng]);
-    }
   }, [patient.id]);
 
   // Auto-trigger GPS detection on load with passive fallback
@@ -61,84 +74,9 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
     handleGetGPS(true);
   }, [patient.id]);
 
-  // Initialize Leaflet Map
-  useEffect(() => {
-    if (!mapContainerRef.current) return;
-
-    if (leafletMapRef.current) {
-      leafletMapRef.current.remove();
-      leafletMapRef.current = null;
-    }
-
-    const map = L.map(mapContainerRef.current, {
-      center: [lat, lng],
-      zoom: 16,
-      zoomControl: true,
-    });
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap | รพ.โพนนาแก้ว',
-    }).addTo(map);
-
-    // Custom Icon for Pinning
-    const customIcon = L.divIcon({
-      className: 'custom-public-pin',
-      html: `
-        <div style="position: relative; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;">
-          <div style="position: absolute; width: 42px; height: 42px; background-color: #10b981; opacity: 0.35; border-radius: 50%; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          <div style="position: relative; width: 36px; height: 36px; background-color: #059669; border: 3px solid #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.35);">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>
-          </div>
-        </div>
-      `,
-      iconSize: [42, 42],
-      iconAnchor: [21, 21],
-    });
-
-    const marker = L.marker([lat, lng], {
-      draggable: true,
-      icon: customIcon,
-    }).addTo(map);
-
-    markerRef.current = marker;
-
-    marker.on('dragend', () => {
-      const pos = marker.getLatLng();
-      const nLat = Number(pos.lat.toFixed(6));
-      const nLng = Number(pos.lng.toFixed(6));
-      setLat(nLat);
-      setLng(nLng);
-    });
-
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      const nLat = Number(e.latlng.lat.toFixed(6));
-      const nLng = Number(e.latlng.lng.toFixed(6));
-      setLat(nLat);
-      setLng(nLng);
-      marker.setLatLng([nLat, nLng]);
-    });
-
-    leafletMapRef.current = map;
-
-    return () => {
-      if (leafletMapRef.current) {
-        leafletMapRef.current.remove();
-        leafletMapRef.current = null;
-      }
-    };
-  }, []);
-
   const updateCoordinates = (nLat: number, nLng: number) => {
-    setLat(nLat);
-    setLng(nLng);
-    if (leafletMapRef.current && markerRef.current) {
-      leafletMapRef.current.setView([nLat, nLng], 17);
-      markerRef.current.setLatLng([nLat, nLng]);
-    }
+    setLat(Number(nLat.toFixed(6)));
+    setLng(Number(nLng.toFixed(6)));
   };
 
   // Trigger Phone GPS
@@ -213,7 +151,7 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
                   <Building2 className="w-3.5 h-3.5" />
                   <span>โรงพยาบาลโพนนาแก้ว จ.สกลนคร</span>
                 </div>
-                <h1 className="text-lg font-bold leading-tight">ระบบระบุพิกัดตำแหน่งบ้านผู้ป่วย</h1>
+                <h1 className="text-lg font-bold leading-tight">ระบบระบุพิกัดตำแหน่งบ้านผู้ป่วย (Google Maps)</h1>
               </div>
             </div>
 
@@ -336,7 +274,7 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
                   HN: {patient.hn}
                 </span>
                 <span className="text-[11px] text-slate-500 font-semibold">
-                  อ.โพนนาแก้ว
+                  อ.โพนนาแก้ว จ.สกลนคร
                 </span>
               </div>
               <p className="font-bold text-slate-900 text-sm">
@@ -373,12 +311,12 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
               )}
             </div>
 
-            {/* Interactive Map Box */}
+            {/* Interactive Google Map Box */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                 <span className="flex items-center gap-1">
                   <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>ตำแหน่งหมุดบนแผนที่ (ลากปรับหมุดได้):</span>
+                  <span>ตำแหน่งหมุดบน Google Maps (แตะหรือลากหมุดได้):</span>
                 </span>
                 <span className="text-[11px] text-slate-400 font-mono">
                   {lat}, {lng}
@@ -386,8 +324,60 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
               </div>
 
               <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500 shadow-inner h-64 bg-slate-100">
-                <div ref={mapContainerRef} className="w-full h-full z-10" />
-                <div className="absolute top-2 right-2 z-20 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold text-slate-700 border shadow-sm pointer-events-none">
+                {apiKey && apiKey.trim() !== '' ? (
+                  <APIProvider apiKey={apiKey} language="th" region="TH">
+                    <Map
+                      id="public-location-submit-map"
+                      defaultCenter={{ lat, lng }}
+                      defaultZoom={17}
+                      mapId="DEMO_MAP_ID"
+                      internalUsageAttributionIds={["gmp_mcp_codeassist_v1_aistudio"]}
+                      gestureHandling="greedy"
+                      fullscreenControl={true}
+                      streetViewControl={true}
+                      mapTypeControl={true}
+                      className="w-full h-full"
+                      onClick={(e) => {
+                        if (e.detail?.latLng) {
+                          const clickLat = Number(e.detail.latLng.lat.toFixed(6));
+                          const clickLng = Number(e.detail.latLng.lng.toFixed(6));
+                          updateCoordinates(clickLat, clickLng);
+                        }
+                      }}
+                    >
+                      <PublicMapController center={{ lat, lng }} />
+
+                      <AdvancedMarker
+                        position={{ lat, lng }}
+                        draggable={true}
+                        onDragEnd={(e) => {
+                          if (e.latLng) {
+                            const dragLat = Number(e.latLng.lat.toFixed(6));
+                            const dragLng = Number(e.latLng.lng.toFixed(6));
+                            updateCoordinates(dragLat, dragLng);
+                          }
+                        }}
+                        title="ลากหมุดไปยังหลังคาบ้านผู้ป่วย"
+                      >
+                        <div className="relative flex items-center justify-center cursor-grab active:cursor-grabbing">
+                          <div className="absolute w-12 h-12 bg-emerald-500 opacity-30 rounded-full animate-ping pointer-events-none" />
+                          <div className="w-10 h-10 rounded-full bg-emerald-600 border-3 border-white shadow-2xl flex items-center justify-center text-white">
+                            <MapPin className="w-5 h-5 fill-white text-white" />
+                          </div>
+                        </div>
+                      </AdvancedMarker>
+                    </Map>
+                  </APIProvider>
+                ) : (
+                  <LeafletLocationPicker
+                    lat={lat}
+                    lng={lng}
+                    onUpdateCoordinates={updateCoordinates}
+                    className="w-full h-full"
+                  />
+                )}
+
+                <div className="absolute top-2 right-2 z-[1000] bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold text-slate-700 border shadow-sm pointer-events-none">
                   ลากหมุดไปยังหลังคาบ้าน
                 </div>
               </div>
@@ -427,8 +417,10 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
         )}
 
         {/* Footer info */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500">
-          ระบบควบคุมวัณโรค รพ.โพนนาแก้ว &bull; ข้อมูลพิกัดได้รับการคุ้มครองความปลอดภัย
+        <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 flex items-center justify-center gap-1">
+          <span>ระบบควบคุมวัณโรค รพ.โพนนาแก้ว</span>
+          <span>&bull;</span>
+          <span>Google Maps Platform</span>
         </div>
 
       </div>

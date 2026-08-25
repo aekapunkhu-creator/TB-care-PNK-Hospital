@@ -18,7 +18,7 @@ import {
   ChevronRight,
   Eye
 } from 'lucide-react';
-import { InvestigationRecord, Patient, UserAccount } from '../types';
+import { InvestigationRecord, Patient, HouseholdContact, UserAccount } from '../types';
 import { PHON_NA_KAEO_SUBDISTRICTS } from '../data/mockData';
 import { InvestigationModal } from './InvestigationModal';
 import { InvestigationPrintModal } from './InvestigationPrintModal';
@@ -26,6 +26,7 @@ import { InvestigationPrintModal } from './InvestigationPrintModal';
 interface InvestigationManagementProps {
   investigations: InvestigationRecord[];
   patients: Patient[];
+  contacts?: HouseholdContact[];
   onAddInvestigation: (rec: InvestigationRecord) => void;
   onUpdateInvestigation: (rec: InvestigationRecord) => void;
   onDeleteInvestigation: (id: string) => void;
@@ -36,6 +37,7 @@ interface InvestigationManagementProps {
 export const InvestigationManagement: React.FC<InvestigationManagementProps> = ({
   investigations,
   patients,
+  contacts = [],
   onAddInvestigation,
   onUpdateInvestigation,
   onDeleteInvestigation,
@@ -433,6 +435,10 @@ export const InvestigationManagement: React.FC<InvestigationManagementProps> = (
         initialData={editingRecord}
         patients={patients}
         currentUser={currentUser}
+        onOpenPrint={(record) => {
+          setPrintingRecord(record);
+          setIsPrintModalOpen(true);
+        }}
       />
 
       {/* Print Preview Modal */}
@@ -440,6 +446,8 @@ export const InvestigationManagement: React.FC<InvestigationManagementProps> = (
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
         investigation={printingRecord}
+        patient={patients.find(p => p.id === printingRecord?.patientId || p.hn === printingRecord?.hn)}
+        contacts={printingRecord ? contacts.filter(c => c.indexPatientId === printingRecord.patientId || c.indexPatientHN === printingRecord.hn) : []}
       />
     </div>
   );

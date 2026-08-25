@@ -17,6 +17,7 @@ interface PatientManagementProps {
   onDeletePatient?: (patientId: string) => void;
   onClearAllPatients?: () => void;
   onTriggerPatientNotify: (patient: Patient) => void;
+  onTriggerBulkNotify?: (patients: Patient[]) => void;
   initialSelectedPatient?: Patient | null;
   currentUser?: UserAccount | null;
   onOpenExcelImportModal?: () => void;
@@ -31,6 +32,7 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
   onDeletePatient,
   onClearAllPatients,
   onTriggerPatientNotify,
+  onTriggerBulkNotify,
   initialSelectedPatient,
   currentUser,
   onOpenExcelImportModal,
@@ -116,7 +118,9 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
   const handleBulkLineNotify = () => {
     const selectedList = patients.filter(p => selectedPatientIds.includes(p.id));
     if (selectedList.length === 0) return;
-    if (window.confirm(`คุณต้องการส่งข้อความเตือนรับประทานยาผ่าน LINE ไปยังผู้ป่วยที่เลือกทั้งหมด ${selectedList.length} ราย หรือไม่?`)) {
+    if (onTriggerBulkNotify) {
+      onTriggerBulkNotify(selectedList);
+    } else {
       selectedList.forEach(p => onTriggerPatientNotify(p));
     }
   };

@@ -12,7 +12,8 @@ import {
   FileCheck2,
   Search,
   Sparkles,
-  MapPin
+  MapPin,
+  Printer
 } from 'lucide-react';
 import { 
   InvestigationRecord, 
@@ -34,6 +35,7 @@ interface InvestigationModalProps {
   initialData?: InvestigationRecord | null;
   patients: Patient[];
   currentUser?: UserAccount | null;
+  onOpenPrint?: (record: InvestigationRecord) => void;
 }
 
 export const InvestigationModal: React.FC<InvestigationModalProps> = ({
@@ -42,7 +44,8 @@ export const InvestigationModal: React.FC<InvestigationModalProps> = ({
   onSave,
   initialData,
   patients,
-  currentUser
+  currentUser,
+  onOpenPrint
 }) => {
   const [activeSection, setActiveSection] = useState<number>(1);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
@@ -264,12 +267,25 @@ export const InvestigationModal: React.FC<InvestigationModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenPrint && (
+              <button
+                type="button"
+                onClick={() => onOpenPrint(formData)}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow transition"
+                title="พิมพ์แบบสอบสวนโรคราชการ"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>พิมพ์แบบฟอร์ม</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Quick Auto-fill from Registered Patients */}

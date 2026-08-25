@@ -96,10 +96,10 @@ async function startServer() {
       const response = await fetch("https://notify-api.line.me/api/notify", {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-encoding",
+          "Content-Type": "application/x-www-form-urlencoded",
           Authorization: `Bearer ${token}`,
         },
-        body: params,
+        body: params.toString(),
       });
 
       const responseData = await response.json();
