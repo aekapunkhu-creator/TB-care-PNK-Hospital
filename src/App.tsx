@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { SpotMap } from './components/SpotMap';
@@ -264,20 +264,29 @@ export default function App() {
   const [selectedPatientForDetail, setSelectedPatientForDetail] = useState<Patient | null>(null);
 
   // Detect URL parameter for public location pinning link (supporting iOS Safari, Chrome, LINE in-app webviews)
-  const getPublicTargetIdFromUrl = () => {
-    if (typeof window === 'undefined') return null;
+  const getPublicTargetIdsFromUrl = (): string[] => {
+    if (typeof window === 'undefined') return [];
     try {
       const urlStr = window.location.href;
       const urlObj = new URL(urlStr);
 
-      // 1. Direct query parameter search
+      // 1. Direct query parameter search for batch or single
+      const batchParam = urlObj.searchParams.get('pinLocationBatch') || 
+                          urlObj.searchParams.get('batch');
+      if (batchParam) {
+        return decodeURIComponent(batchParam).split(',').map(s => s.trim()).filter(Boolean);
+      }
+
       const directParam = urlObj.searchParams.get('pinLocationFor') || 
                           urlObj.searchParams.get('locationToken') || 
                           urlObj.searchParams.get('target') || 
                           urlObj.searchParams.get('patientId') || 
                           urlObj.searchParams.get('id') || 
                           urlObj.searchParams.get('hn');
-      if (directParam) return decodeURIComponent(directParam).trim();
+      if (directParam) {
+        const decoded = decodeURIComponent(directParam).trim();
+        return decoded.includes(',') ? decoded.split(',').map(s => s.trim()).filter(Boolean) : [decoded];
+      }
 
       // 2. Hash-based parameter search (e.g. #pinLocationFor=TB-01 or #/pin/TB-01)
       const hash = window.location.hash;
@@ -286,29 +295,45 @@ export default function App() {
         if (cleanHash.includes('=')) {
           const queryPart = cleanHash.includes('?') ? cleanHash.split('?')[1] : cleanHash;
           const hashParams = new URLSearchParams(queryPart);
+          const hashBatch = hashParams.get('pinLocationBatch') || hashParams.get('batch');
+          if (hashBatch) {
+            return decodeURIComponent(hashBatch).split(',').map(s => s.trim()).filter(Boolean);
+          }
           const hashTarget = hashParams.get('pinLocationFor') || 
                              hashParams.get('locationToken') || 
                              hashParams.get('patientId') || 
                              hashParams.get('id');
-          if (hashTarget) return decodeURIComponent(hashTarget).trim();
+          if (hashTarget) {
+            const decoded = decodeURIComponent(hashTarget).trim();
+            return decoded.includes(',') ? decoded.split(',').map(s => s.trim()).filter(Boolean) : [decoded];
+          }
         }
         const match = cleanHash.match(/pin\/([^/?&#]+)/i);
-        if (match && match[1]) return decodeURIComponent(match[1]).trim();
+        if (match && match[1]) return [decodeURIComponent(match[1]).trim()];
       }
 
       // 3. Fallback regex search on raw URL (handles LINE or iOS webview param appending)
       const regexMatch = urlStr.match(/[?&#]pinLocationFor=([^&#]+)/i) || 
+                         urlStr.match(/[?&#]pinLocationBatch=([^&#]+)/i) ||
                          urlStr.match(/[?&#]locationToken=([^&#]+)/i);
       if (regexMatch && regexMatch[1]) {
-        return decodeURIComponent(regexMatch[1]).trim();
+        const decoded = decodeURIComponent(regexMatch[1]).trim();
+        return decoded.includes(',') ? decoded.split(',').map(s => s.trim()).filter(Boolean) : [decoded];
       }
     } catch (err) {
       console.warn('URL parsing error:', err);
     }
-    return null;
+    return [];
   };
 
-  const publicTargetId = getPublicTargetIdFromUrl();
+  const publicTargetIds = getPublicTargetIdsFromUrl();
+  const publicTargetId = publicTargetIds.length > 0 ? publicTargetIds[0] : null;
+
+  // Batch patients resolved from URL
+  const publicBatchPatients = useMemo(() => {
+    if (publicTargetIds.length <= 1) return undefined;
+    return patients.filter(p => publicTargetIds.includes(p.id) || publicTargetIds.includes(p.hn));
+  }, [patients, publicTargetIds]);
 
   useEffect(() => {
     if (!publicTargetId) return;
@@ -663,8 +688,10 @@ export default function App() {
       return (
         <PublicLocationSubmitView
           patient={activePublicPatient}
+          batchPatients={publicBatchPatients}
           reporterEmail={locationReporterEmail}
           onSubmitLocation={handleUpdatePatientLocationFromPublic}
+          onSelectBatchPatient={(p) => setPublicPinningPatient(p)}
           onLogoutReporter={() => {
             safeStorage.removeItem('tb_phon_reporter_email');
             setLocationReporterEmail(null);
@@ -675,6 +702,7 @@ export default function App() {
             if (typeof window !== 'undefined') {
               const url = new URL(window.location.href);
               url.searchParams.delete('pinLocationFor');
+              url.searchParams.delete('pinLocationBatch');
               url.searchParams.delete('locationToken');
               window.history.replaceState({}, '', url.toString());
             }

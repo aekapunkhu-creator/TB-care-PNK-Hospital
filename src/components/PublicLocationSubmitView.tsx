@@ -3,21 +3,26 @@ import L from 'leaflet';
 import { Patient } from '../types';
 import { 
   MapPin, CheckCircle2, Crosshair, Navigation, HelpCircle, 
-  Send, ShieldCheck, CheckCircle, AlertCircle, Compass, Building2, Check
+  Send, ShieldCheck, CheckCircle, AlertCircle, Compass, Building2, Check,
+  Users, ChevronRight, Sparkles, ArrowRight
 } from 'lucide-react';
 
 interface PublicLocationSubmitViewProps {
   patient: Patient;
+  batchPatients?: Patient[];
   reporterEmail?: string;
   onSubmitLocation: (patientId: string, newLat: number, newLng: number, reporterEmail?: string) => void;
+  onSelectBatchPatient?: (patient: Patient) => void;
   onClosePublicView?: () => void;
   onLogoutReporter?: () => void;
 }
 
 export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> = ({
   patient,
+  batchPatients,
   reporterEmail,
   onSubmitLocation,
+  onSelectBatchPatient,
   onClosePublicView,
   onLogoutReporter
 }) => {
@@ -35,11 +40,26 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+  const [submittedIds, setSubmittedIds] = useState<string[]>([]);
+
+  // Update lat/lng whenever active patient changes
+  useEffect(() => {
+    const curLat = patient.lat && patient.lat !== 0 ? patient.lat : 17.06520;
+    const curLng = patient.lng && patient.lng !== 0 ? patient.lng : 104.28850;
+    setLat(Number(curLat.toFixed(6)));
+    setLng(Number(curLng.toFixed(6)));
+    setIsSubmitted(submittedIds.includes(patient.id));
+
+    if (leafletMapRef.current && markerRef.current) {
+      leafletMapRef.current.setView([curLat, curLng], 16);
+      markerRef.current.setLatLng([curLat, curLng]);
+    }
+  }, [patient.id]);
 
   // Auto-trigger GPS detection on load with passive fallback
   useEffect(() => {
     handleGetGPS(true);
-  }, []);
+  }, [patient.id]);
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -88,35 +108,23 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
 
     marker.on('dragend', () => {
       const pos = marker.getLatLng();
-      setLat(Number(pos.lat.toFixed(6)));
-      setLng(Number(pos.lng.toFixed(6)));
+      const nLat = Number(pos.lat.toFixed(6));
+      const nLng = Number(pos.lng.toFixed(6));
+      setLat(nLat);
+      setLng(nLng);
     });
 
     map.on('click', (e: L.LeafletMouseEvent) => {
-      const clickLat = Number(e.latlng.lat.toFixed(6));
-      const clickLng = Number(e.latlng.lng.toFixed(6));
-      setLat(clickLat);
-      setLng(clickLng);
-      marker.setLatLng([clickLat, clickLng]);
+      const nLat = Number(e.latlng.lat.toFixed(6));
+      const nLng = Number(e.latlng.lng.toFixed(6));
+      setLat(nLat);
+      setLng(nLng);
+      marker.setLatLng([nLat, nLng]);
     });
 
     leafletMapRef.current = map;
 
-    // Invalidate map size multiple times to ensure proper rendering on iOS Safari
-    const t1 = setTimeout(() => map.invalidateSize(), 150);
-    const t2 = setTimeout(() => map.invalidateSize(), 500);
-
-    const handleResize = () => {
-      map.invalidateSize();
-    };
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
@@ -124,25 +132,25 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
     };
   }, []);
 
-  const updateCoordinates = (newLat: number, newLng: number) => {
-    setLat(newLat);
-    setLng(newLng);
-    if (markerRef.current && leafletMapRef.current) {
-      markerRef.current.setLatLng([newLat, newLng]);
-      leafletMapRef.current.panTo([newLat, newLng]);
+  const updateCoordinates = (nLat: number, nLng: number) => {
+    setLat(nLat);
+    setLng(nLng);
+    if (leafletMapRef.current && markerRef.current) {
+      leafletMapRef.current.setView([nLat, nLng], 17);
+      markerRef.current.setLatLng([nLat, nLng]);
     }
   };
 
+  // Trigger Phone GPS
   const handleGetGPS = (isInitial = false) => {
     if (!navigator.geolocation) {
-      if (!isInitial) setGpsError('เบราว์เซอร์บนอุปกรณ์นี้ไม่รองรับการดึงพิกัด GPS');
+      if (!isInitial) setGpsError('อุปกรณ์นี้ไม่รองรับระบบ Geolocation GPS');
       return;
     }
 
     setGpsLoading(true);
-    setGpsError(null);
+    if (!isInitial) setGpsError(null);
 
-    // Progressive GPS retrieval for maximum iOS & Android compatibility
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const uLat = Number(pos.coords.latitude.toFixed(6));
@@ -183,7 +191,11 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
   const handleConfirmSubmit = () => {
     onSubmitLocation(patient.id, lat, lng, reporterEmail);
     setIsSubmitted(true);
+    setSubmittedIds(prev => Array.from(new Set([...prev, patient.id])));
   };
+
+  // Find next unsubmitted patient in batch
+  const nextPatientInBatch = batchPatients?.find(p => !submittedIds.includes(p.id) && p.id !== patient.id);
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-3 sm:p-6 font-['Prompt',sans-serif]">
@@ -230,6 +242,46 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
           )}
         </div>
 
+        {/* Batch Patient Switcher Header if multiple patients are in URL */}
+        {batchPatients && batchPatients.length > 1 && (
+          <div className="p-3 bg-indigo-50 border-b border-indigo-100 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs font-bold text-indigo-900">
+              <span className="flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-indigo-600" />
+                <span>รายชื่อผู้ป่วยที่มอบหมาย ({batchPatients.length} ราย):</span>
+              </span>
+              <span className="text-[11px] text-indigo-700 font-semibold bg-indigo-100 px-2 py-0.5 rounded-full">
+                บันทึกแล้ว {submittedIds.length}/{batchPatients.length} ราย
+              </span>
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {batchPatients.map(p => {
+                const isCurrent = p.id === patient.id;
+                const isDone = submittedIds.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      if (onSelectBatchPatient) onSelectBatchPatient(p);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                      isCurrent 
+                        ? 'bg-emerald-600 text-white shadow-sm' 
+                        : isDone
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {isDone && <Check className="w-3 h-3 text-emerald-600" />}
+                    <span>{p.prefix}{p.firstName} (HN: {p.hn})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Success Screen state */}
         {isSubmitted ? (
           <div className="p-8 text-center space-y-5 my-auto animate-fade-in">
@@ -250,9 +302,29 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
                 <span>ผู้ป่วย: {patient.prefix}{patient.firstName} {patient.lastName} (HN: {patient.hn})</span>
               </div>
               <p className="text-[11px] text-slate-600">
-                พื้นที่: ตำบล{patient.subdistrict} ({patient.village})
+                พื้นที่: ตำบล{patient.subdistrict} ({patient.village}) {patient.houseNo ? `เลขที่ ${patient.houseNo}` : ''}
               </p>
             </div>
+
+            {/* If Batch, provide next patient button */}
+            {nextPatientInBatch && onSelectBatchPatient && (
+              <div className="pt-2">
+                <button
+                  onClick={() => onSelectBatchPatient(nextPatientInBatch)}
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-2xl shadow-lg transition flex items-center justify-center gap-2"
+                >
+                  <span>ปักหมุดผู้ป่วยรายถัดไป: คุณ{nextPatientInBatch.firstName} (HN: {nextPatientInBatch.hn})</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={() => setIsSubmitted(false)}
+              className="text-xs text-slate-500 hover:text-slate-800 underline font-semibold block mx-auto"
+            >
+              แก้ไขตำแหน่งพิกัดนี้อีกครั้ง
+            </button>
           </div>
         ) : (
           <div className="p-4 sm:p-5 space-y-4">
@@ -278,7 +350,7 @@ export const PublicLocationSubmitView: React.FC<PublicLocationSubmitViewProps> =
             {/* GPS Detection Bar */}
             <div className="space-y-2">
               <button
-                onClick={handleGetGPS}
+                onClick={() => handleGetGPS(false)}
                 disabled={gpsLoading}
                 className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-200 transition disabled:opacity-50"
               >

@@ -4,7 +4,7 @@ import {
   X, MapPin, Copy, Share2, Check, QrCode, ExternalLink, 
   Send, ShieldCheck, Smartphone, Info, Users, CheckSquare, 
   Square, Printer, Search, Filter, Download, Sparkles,
-  Building2, ArrowRight, Eye, RefreshCw
+  Building2, ArrowRight, Eye, RefreshCw, AlertTriangle, Layers, MessageCircle
 } from 'lucide-react';
 import { PHON_NA_KAEO_SUBDISTRICTS } from '../data/mockData';
 
@@ -31,14 +31,19 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
   onSelectPatient,
   onOpenPublicPreview
 }) => {
-  // Navigation tabs: 'batch' (Multi-Select & Bulk Send) | 'single' (Single Patient) | 'print' (Printable QR Cards)
-  const [activeTab, setActiveTab] = useState<'batch' | 'single' | 'print'>('batch');
+  // Navigation tabs: 'batch' (Multi-Select & Bulk Send) | 'chunks' (Safe Batches) | 'single' (Single Patient) | 'print' (Printable QR Cards)
+  const [activeTab, setActiveTab] = useState<'batch' | 'chunks' | 'single' | 'print'>('batch');
   
+  // Format mode: 'compact' (optimized for LINE URL limits) | 'full' (detailed) | 'hub' (single portal link)
+  const [formatMode, setFormatMode] = useState<'compact' | 'full' | 'hub'>('compact');
+
   // Single mode state
   const [copiedSingle, setCopiedSingle] = useState(false);
   const [copiedBatch, setCopiedBatch] = useState(false);
+  const [copiedHub, setCopiedHub] = useState(false);
   const [copiedCardId, setCopiedCardId] = useState<string | null>(null);
   const [privacyMode, setPrivacyMode] = useState(false);
+  const [showCopyNoticeModal, setShowCopyNoticeModal] = useState(false);
 
   // Normalize patient list
   const patientList = useMemo(() => {
@@ -59,8 +64,8 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
     if (effectivePatientProp) {
       return [effectivePatientProp.id];
     }
-    // Default: select active patients
-    return patientList.slice(0, 5).map(p => p.id);
+    // Default: select first 3-5 patients
+    return patientList.slice(0, 3).map(p => p.id);
   });
 
   // Filters for Batch Selection
@@ -75,6 +80,10 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
 
   const generatePinUrl = (patientId: string) => {
     return `${origin}${pathname}?pinLocationFor=${encodeURIComponent(patientId)}`;
+  };
+
+  const generateBatchPortalUrl = (patientIds: string[]) => {
+    return `${origin}${pathname}?pinLocationBatch=${encodeURIComponent(patientIds.join(','))}`;
   };
 
   const generateQrUrl = (url: string, size = 220) => {
@@ -131,47 +140,122 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
     setSelectedBatchIds(prev => prev.filter(id => !idsToRemove.has(id)));
   };
 
-  // Generate Consolidated LINE message for all selected patients
-  const generateBatchLineMessage = () => {
-    if (selectedPatients.length === 0) return '';
+  // Generate Message for specific list of patients
+  const buildMessageForPatients = (pList: Patient[], mode: 'compact' | 'full' | 'hub' = formatMode) => {
+    if (pList.length === 0) return '';
     
-    let msg = `📍 [ระบบระบุพิกัดบ้านผู้ป่วยวัณโรค อ.โพนนาแก้ว]\n`;
-    msg += `เรียน เจ้าหน้าที่สาธารณสุข / อสม. พี่เลี้ยง\n`;
-    msg += `ขอความร่วมมือช่วยกดลิงก์ด้านล่าง เพื่อเปิดแผนที่และปักหมุด GPS ตำแหน่งบ้านผู้ป่วย (${selectedPatients.length} ราย):\n\n`;
+    if (mode === 'hub') {
+      const hubUrl = generateBatchPortalUrl(pList.map(p => p.id));
+      let msg = `📍 [ปักหมุดพิกัดบ้านผู้ป่วยวัณโรค รพ.โพนนาแก้ว]\n`;
+      msg += `เรียน เจ้าหน้าที่/อสม. รวม ${pList.length} ราย\n\n`;
+      pList.forEach((p, idx) => {
+        const displayName = privacyMode 
+          ? `${p.prefix}${p.firstName.charAt(0)}***`
+          : `${p.prefix}${p.firstName} ${p.lastName}`;
+        msg += `${idx + 1}. ${displayName} (HN: ${p.hn}, ${p.subdistrict})\n`;
+      });
+      msg += `\n👉 กดลิงก์รวมเพื่อเลือกปักหมุด:\n${hubUrl}`;
+      return msg;
+    }
 
-    selectedPatients.forEach((p, idx) => {
+    if (mode === 'compact') {
+      let msg = `📍 [ปักหมุดบ้านผู้ป่วย TB รพ.โพนนาแก้ว (${pList.length} ราย)]\n`;
+      pList.forEach((p, idx) => {
+        const displayName = privacyMode 
+          ? `${p.prefix}${p.firstName.charAt(0)}***`
+          : `${p.prefix}${p.firstName} ${p.lastName}`;
+        msg += `\n${idx + 1}. ${displayName} (HN: ${p.hn})\n👉 ${generatePinUrl(p.id)}\n`;
+      });
+      return msg;
+    }
+
+    // Full format
+    let msg = `📍 [ระบบระบุพิกัดบ้านผู้ป่วยวัณโรค อ.โพนนาแก้ว]\n`;
+    msg += `เรียน เจ้าหน้าที่สาธารณสุข / อสม. พี่เลี้ยง (${pList.length} ราย):\n\n`;
+
+    pList.forEach((p, idx) => {
       const displayName = privacyMode 
         ? `${p.prefix}${p.firstName.charAt(0)}*** ${p.lastName.charAt(0)}***`
         : `${p.prefix}${p.firstName} ${p.lastName}`;
       const url = generatePinUrl(p.id);
       
       msg += `📌 รายที่ ${idx + 1}: คุณ${displayName} (HN: ${p.hn})\n`;
-      msg += `🏠 ที่อยู่: ${p.subdistrict} (${p.village}) ${p.houseNo ? `บ้านเลขที่ ${p.houseNo}` : ''}\n`;
+      msg += `🏠 ที่อยู่: ${p.subdistrict} (${p.village})\n`;
       if (p.dotsSupervisorName) {
-        msg += `👤 อสม.ดูแล: ${p.dotsSupervisorName}\n`;
+        msg += `👤 อสม: ${p.dotsSupervisorName}\n`;
       }
       msg += `👉 กดลิงก์เพื่อปักหมุด: ${url}\n\n`;
     });
 
-    msg += `💡 หมายเหตุ: อสม./ผู้ป่วย สามารถกดลิงก์และยืนยันตัวตนด้วย Google/อีเมล เพื่อส่งพิกัดได้ทันทีครับ`;
+    msg += `💡 หมายเหตุ: อสม./ผู้ป่วย กดลิงก์เพื่อส่งพิกัด GPS ได้ทันที`;
     return msg;
+  };
+
+  // Full Batch Message
+  const currentBatchMessage = useMemo(() => {
+    return buildMessageForPatients(selectedPatients, formatMode);
+  }, [selectedPatients, formatMode, privacyMode]);
+
+  // Encoded URL Length calculation to prevent 414
+  const encodedBatchLength = useMemo(() => {
+    return encodeURIComponent(currentBatchMessage).length;
+  }, [currentBatchMessage]);
+
+  const isUrlTooLarge = encodedBatchLength > 1200;
+
+  // Split selected patients into safe chunks (2 patients per chunk to guarantee safe URL size < 1000 chars)
+  const patientChunks = useMemo(() => {
+    const chunkSize = 2;
+    const chunks: Patient[][] = [];
+    for (let i = 0; i < selectedPatients.length; i += chunkSize) {
+      chunks.push(selectedPatients.slice(i, i + chunkSize));
+    }
+    return chunks;
+  }, [selectedPatients]);
+
+  // Robust LINE / Share Handler (Prevents 414 Request-URI Too Large)
+  const executeSafeShare = async (text: string, title = 'ปักหมุดพิกัดบ้านผู้ป่วยวัณโรค') => {
+    if (!text) return;
+
+    // 1. Try Native Web Share API first (Best for Mobile: Zero 414 errors, supports unlimited text!)
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text: text
+        });
+        return;
+      } catch (err: any) {
+        // If user cancelled sharing sheet, just return
+        if (err?.name === 'AbortError') return;
+        console.warn('Web Share API error, falling back to clipboard & direct line link:', err);
+      }
+    }
+
+    // 2. Check encoded length for LINE URL scheme
+    const encLength = encodeURIComponent(text).length;
+    
+    // If URL is safe size (< 1200 characters), we can open LINE URL directly
+    if (encLength < 1200) {
+      const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
+      window.open(lineUrl, '_blank');
+      return;
+    }
+
+    // 3. If URL is TOO LARGE (which causes 414 Request-URI Too Large):
+    // Auto-copy full text to clipboard and guide user to paste in LINE
+    await navigator.clipboard.writeText(text);
+    setCopiedBatch(true);
+    setShowCopyNoticeModal(true);
+    setTimeout(() => setCopiedBatch(false), 3000);
   };
 
   // Copy batch message
   const handleCopyBatchMessage = () => {
-    const text = generateBatchLineMessage();
-    if (!text) return;
-    navigator.clipboard.writeText(text);
+    if (!currentBatchMessage) return;
+    navigator.clipboard.writeText(currentBatchMessage);
     setCopiedBatch(true);
     setTimeout(() => setCopiedBatch(false), 2500);
-  };
-
-  // Share batch message to LINE
-  const handleShareBatchToLine = () => {
-    const text = generateBatchLineMessage();
-    if (!text) return;
-    const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
-    window.open(lineUrl, '_blank');
   };
 
   // Copy single link helper
@@ -182,22 +266,21 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
     setTimeout(() => setCopiedCardId(null), 2000);
   };
 
-  // Share single link to LINE
+  // Share single link to LINE (Safe direct share)
   const handleShareSingleToLine = (p: Patient) => {
     const displayName = privacyMode 
-      ? `${p.prefix}${p.firstName.charAt(0)}*** ${p.lastName.charAt(0)}***`
+      ? `${p.prefix}${p.firstName.charAt(0)}***`
       : `${p.prefix}${p.firstName} ${p.lastName}`;
     const url = generatePinUrl(p.id);
-    const msg = `📍 [ระบบระบุพิกัดบ้านผู้ป่วยวัณโรค อ.โพนนาแก้ว]\nขอความร่วมมือ คุณ${displayName} (HN: ${p.hn})\nหรือ อสม.พี่เลี้ยง ช่วยกดลิงก์นี้เพื่อระบุ/ส่งพิกัดตำแหน่งบ้านเข้าสู่ระบบ รพ.โพนนาแก้ว ครับ:\n${url}`;
-    const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(msg)}`;
-    window.open(lineUrl, '_blank');
+    const msg = `📍 [ปักหมุดบ้านผู้ป่วย TB รพ.โพนนาแก้ว]\nคุณ${displayName} (HN: ${p.hn})\n🏠 ${p.subdistrict} (${p.village})\n👉 ${url}`;
+    executeSafeShare(msg, `พิกัดบ้าน คุณ${displayName}`);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
+      <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[95vh]">
         
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-emerald-700 via-teal-700 to-indigo-800 text-white flex items-center justify-between shadow-md">
@@ -213,7 +296,7 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
                 </span>
               </h3>
               <p className="text-xs text-emerald-100 mt-0.5">
-                ส่งลิงก์และ QR Code ให้ผู้ป่วย หรือ อสม. พี่เลี้ยง กดปักหมุด GPS จากมือถือเพื่อเข้าถึงพิกัดที่แม่นยำ
+                แชร์ลิงก์และ QR Code ให้ อสม. หรือผู้ป่วย ปักหมุด GPS เข้าสู่ระบบ รพ.โพนนาแก้ว ได้อย่างแม่นยำ
               </p>
             </div>
           </div>
@@ -234,7 +317,7 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
           <div className="flex items-center gap-1.5 bg-slate-200/80 p-1 rounded-2xl">
             <button
               onClick={() => setActiveTab('batch')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl font-bold transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold transition ${
                 activeTab === 'batch'
                   ? 'bg-white text-emerald-950 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
@@ -249,28 +332,43 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
               </span>
             </button>
 
+            {selectedPatients.length > 2 && (
+              <button
+                onClick={() => setActiveTab('chunks')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold transition ${
+                  activeTab === 'chunks'
+                    ? 'bg-white text-emerald-950 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="แบ่งส่งทีละ 2 คนเพื่อป้องกันข้อผิดพลาด LINE URL"
+              >
+                <Layers className="w-4 h-4 text-indigo-600" />
+                <span>แบ่งส่งทีละชุด ({patientChunks.length} ชุด)</span>
+              </button>
+            )}
+
             <button
               onClick={() => setActiveTab('single')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl font-bold transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold transition ${
                 activeTab === 'single'
                   ? 'bg-white text-emerald-950 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <QrCode className="w-4 h-4 text-indigo-600" />
+              <QrCode className="w-4 h-4 text-teal-600" />
               <span>สร้างรายบุคคล (Single)</span>
             </button>
 
             <button
               onClick={() => setActiveTab('print')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl font-bold transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold transition ${
                 activeTab === 'print'
                   ? 'bg-white text-emerald-950 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Printer className="w-4 h-4 text-amber-600" />
-              <span>พิมพ์ใบการ์ด QR Code ({selectedPatients.length})</span>
+              <span>พิมพ์การ์ด QR ({selectedPatients.length})</span>
             </button>
           </div>
 
@@ -306,44 +404,101 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
                       <span>ส่งลิงก์ระบุพิกัดพร้อมกัน ({selectedBatchIds.length} รายที่เลือก)</span>
                     </h4>
                     <p className="text-xs text-slate-600 mt-0.5">
-                      รวมลิงก์ของคนไข้ทั้งหมดที่เลือกเป็นข้อความเดียว สำหรับแชร์เข้ากลุ่ม LINE หรือคัดลอกส่งต่อ
+                      เลือกรูปแบบข้อความด้านล่าง เพื่อส่งแชร์ไปยัง LINE ได้อย่างราบรื่นโดยไม่ติดขัดปัญหาข้อความยาว
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  {/* Format Mode Selector */}
+                  <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-emerald-200 text-xs font-semibold">
                     <button
-                      onClick={handleShareBatchToLine}
-                      disabled={selectedBatchIds.length === 0}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-xs shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => setFormatMode('compact')}
+                      className={`px-2.5 py-1 rounded-lg transition ${
+                        formatMode === 'compact' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="ข้อความสั้นกระชับ เหมาะสำหรับส่ง LINE ได้ทันที"
                     >
-                      <Send className="w-4 h-4" />
-                      <span>แชร์รวมส่ง LINE ({selectedBatchIds.length})</span>
+                      สั้นกระชับ (แนะนำ)
                     </button>
-
                     <button
-                      onClick={handleCopyBatchMessage}
-                      disabled={selectedBatchIds.length === 0}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => setFormatMode('hub')}
+                      className={`px-2.5 py-1 rounded-lg transition ${
+                        formatMode === 'hub' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="สร้าง 1 ลิงก์รวม ให้ อสม. กดเลือกผู้ป่วยในหน้าเดียว"
                     >
-                      {copiedBatch ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                      <span>{copiedBatch ? 'คัดลอกข้อความแล้ว!' : 'คัดลอกข้อความสรุปรวม'}</span>
+                      ลิงก์รวม (1 Link)
                     </button>
-
                     <button
-                      onClick={() => setActiveTab('print')}
-                      disabled={selectedBatchIds.length === 0}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => setFormatMode('full')}
+                      className={`px-2.5 py-1 rounded-lg transition ${
+                        formatMode === 'full' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="รายละเอียดครบถ้วน"
                     >
-                      <Printer className="w-4 h-4 text-amber-600" />
-                      <span>ดู QR รวม</span>
+                      แบบเต็ม
                     </button>
                   </div>
                 </div>
 
+                {/* Batch Action Buttons */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    onClick={() => executeSafeShare(currentBatchMessage, `พิกัดบ้านผู้ป่วยวัณโรค (${selectedPatients.length} ราย)`)}
+                    disabled={selectedBatchIds.length === 0}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-xs shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>แชร์ส่ง LINE ({selectedBatchIds.length} ราย)</span>
+                  </button>
+
+                  <button
+                    onClick={handleCopyBatchMessage}
+                    disabled={selectedBatchIds.length === 0}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {copiedBatch ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedBatch ? 'คัดลอกข้อความแล้ว!' : 'คัดลอกข้อความทั้งหมด'}</span>
+                  </button>
+
+                  {selectedPatients.length > 2 && (
+                    <button
+                      onClick={() => setActiveTab('chunks')}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 hover:bg-indigo-100 font-bold text-xs transition"
+                    >
+                      <Layers className="w-4 h-4 text-indigo-600" />
+                      <span>แบ่งส่งทีละชุด ({patientChunks.length} ชุด)</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setActiveTab('print')}
+                    disabled={selectedBatchIds.length === 0}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+                  >
+                    <Printer className="w-4 h-4 text-amber-600" />
+                    <span>ดู QR รวม</span>
+                  </button>
+                </div>
+
+                {/* Size Status Warning Bar if text is large */}
+                {isUrlTooLarge && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-900 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-bold">
+                        ข้อความมีขนาดใหญ่ ({selectedPatients.length} ราย):
+                      </p>
+                      <p className="text-[11px] text-amber-800">
+                        เพื่อป้องกันข้อผิดพลาด <b>414 Request-URI Too Large</b> บน LINE หากเปิดผ่านคอมพิวเตอร์ ระบบจะทำการคัดลอกข้อความทั้งหมดให้อัตโนมัติ เพื่อให้ท่านกดเปิดแอป LINE แล้วกดวาง (Paste) ส่งได้ทันที 100% หรือเลือกใช้โหมด <b>"ลิงก์รวม (1 Link)"</b> ด้านบน
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Preview of Batch Message */}
                 {selectedBatchIds.length > 0 && (
                   <div className="bg-white/90 border border-emerald-200 rounded-xl p-3 text-xs text-slate-700 max-h-32 overflow-y-auto font-mono whitespace-pre-line">
-                    {generateBatchLineMessage()}
+                    {currentBatchMessage}
                   </div>
                 )}
               </div>
@@ -515,7 +670,77 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: SINGLE PATIENT QR & LINK */}
+          {/* TAB 2: SAFE BATCH CHUNKS (แบ่งส่งทีละชุด ปลอดภัย 100% ไม่ติด 414) */}
+          {activeTab === 'chunks' && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 text-xs text-indigo-950 space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-sm text-indigo-900">
+                  <Layers className="w-4 h-4 text-indigo-600" />
+                  <span>แบ่งส่งทีละชุด (Safe Batches) — ปลอดภัย 100% ไม่ติด 414 Request-URI Too Large</span>
+                </div>
+                <p className="text-indigo-800 leading-relaxed">
+                  ระบบได้แบ่งผู้ป่วยที่เลือก ({selectedPatients.length} ราย) ออกเป็นชุดละ 2 ราย เพื่อให้ความยาว URL อยู่ในเกณฑ์ที่ LINE รองรับ สามารถกดปุ่มส่ง LINE ทีละชุดได้ทันที
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {patientChunks.map((chunk, idx) => {
+                  const chunkMessage = buildMessageForPatients(chunk, 'compact');
+                  return (
+                    <div key={idx} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                          <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">
+                            {idx + 1}
+                          </span>
+                          <span>ชุดที่ {idx + 1} ({chunk.length} ราย)</span>
+                        </span>
+                        <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-100 px-2 py-0.5 rounded-md">
+                          ขนาดปลอดภัย (Safe)
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs text-slate-700">
+                        {chunk.map(p => (
+                          <div key={p.id} className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200">
+                            <div>
+                              <span className="font-bold text-slate-900">{p.prefix}{p.firstName} {p.lastName}</span>
+                              <span className="text-slate-500 font-mono text-[11px] ml-1.5">(HN: {p.hn})</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500">{p.subdistrict}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => executeSafeShare(chunkMessage, `พิกัดบ้านผู้ป่วยวัณโรค ชุดที่ ${idx + 1}`)}
+                          className="flex-1 py-2 px-3 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow transition"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>ส่ง LINE ชุดนี้</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(chunkMessage);
+                            setCopiedBatch(true);
+                            setTimeout(() => setCopiedBatch(false), 2000);
+                          }}
+                          className="py-2 px-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs flex items-center gap-1 transition"
+                          title="คัดลอกข้อความชุดนี้"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: SINGLE PATIENT QR & LINK */}
           {activeTab === 'single' && activeSinglePatient && (
             <div className="space-y-5 animate-fadeIn">
               
@@ -656,7 +881,7 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: PRINTABLE QR CODE CARDS GALLERY */}
+          {/* TAB 4: PRINTABLE QR CODE CARDS GALLERY */}
           {activeTab === 'print' && (
             <div className="space-y-5 animate-fadeIn">
               
@@ -774,7 +999,7 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
           <div className="flex items-center gap-2">
             {selectedBatchIds.length > 0 && activeTab === 'batch' && (
               <button
-                onClick={handleShareBatchToLine}
+                onClick={() => executeSafeShare(currentBatchMessage, `พิกัดบ้านผู้ป่วยวัณโรค (${selectedPatients.length} ราย)`)}
                 className="px-4 py-2 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold transition flex items-center gap-1.5 shadow"
               >
                 <Send className="w-4 h-4" />
@@ -792,6 +1017,57 @@ export const ShareLocationLinkModal: React.FC<ShareLocationLinkModalProps> = ({
         </div>
 
       </div>
+
+      {/* Copy Notice Alert Modal (Prevent 414 Request-URI Too Large) */}
+      {showCopyNoticeModal && (
+        <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 text-slate-800">
+            <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+              <Check className="w-8 h-8" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="font-bold text-base text-slate-900">
+                คัดลอกข้อความสรุปทั้งหมดเรียบร้อยแล้ว!
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                เนื่องจากท่านเลือกผู้ป่วยหลายราย ({selectedPatients.length} ราย) ข้อความมีขนาดยาวกว่าที่ระบบ LINE URL รองรับโดยตรง <b>ระบบจึงคัดลอกข้อความทั้งหมดไว้ในคลิปบอร์ดให้แล้ว</b> เพื่อป้องกันข้อผิดพลาด <i>414 Request-URI Too Large</i>
+              </p>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs space-y-1 text-slate-700">
+              <p className="font-bold text-slate-900 flex items-center gap-1">
+                <span>💡 วิธีการส่งใน LINE:</span>
+              </p>
+              <ol className="list-decimal list-inside space-y-0.5 text-slate-600">
+                <li>เปิดแชทหรือกลุ่มในแอป LINE</li>
+                <li>กด <b>"วาง (Paste)"</b> หรือกด <kbd className="bg-slate-200 px-1.5 py-0.5 rounded font-mono text-[10px]">Ctrl+V</kbd> ในช่องพิมพ์ข้อความ</li>
+                <li>กดยืนยันส่งข้อความได้ทันที</li>
+              </ol>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={() => {
+                  window.open('https://line.me/', '_blank');
+                  setShowCopyNoticeModal(false);
+                }}
+                className="flex-1 py-2.5 px-4 bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
+              >
+                <Send className="w-4 h-4" />
+                <span>เปิดแอป LINE เพื่อวางข้อความ</span>
+              </button>
+
+              <button
+                onClick={() => setShowCopyNoticeModal(false)}
+                className="py-2.5 px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition"
+              >
+                เข้าใจแล้ว
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
