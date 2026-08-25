@@ -259,6 +259,7 @@ export default function App() {
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isShareLocationOpen, setIsShareLocationOpen] = useState(false);
   const [shareLocationTargetPatient, setShareLocationTargetPatient] = useState<Patient | null>(null);
+  const [shareLocationTargetPatients, setShareLocationTargetPatients] = useState<Patient[] | null>(null);
   const [publicPinningPatient, setPublicPinningPatient] = useState<Patient | null>(null);
   const [selectedPatientForDetail, setSelectedPatientForDetail] = useState<Patient | null>(null);
 
@@ -789,8 +790,14 @@ export default function App() {
               setSelectedPatientForDetail(p);
               setActiveTab('patients');
             }}
-            onOpenShareLocationModal={(p) => {
-              setShareLocationTargetPatient(p || null);
+            onOpenShareLocationModal={(param) => {
+              if (Array.isArray(param)) {
+                setShareLocationTargetPatients(param);
+                setShareLocationTargetPatient(param[0] || null);
+              } else {
+                setShareLocationTargetPatient(param || null);
+                setShareLocationTargetPatients(param ? [param] : null);
+              }
               setIsShareLocationOpen(true);
             }}
           />
@@ -808,8 +815,14 @@ export default function App() {
             initialSelectedPatient={selectedPatientForDetail}
             currentUser={currentUser}
             onOpenExcelImportModal={() => setIsExcelImportOpen(true)}
-            onOpenShareLocationModal={(p) => {
-              setShareLocationTargetPatient(p || null);
+            onOpenShareLocationModal={(param) => {
+              if (Array.isArray(param)) {
+                setShareLocationTargetPatients(param);
+                setShareLocationTargetPatient(param[0] || null);
+              } else {
+                setShareLocationTargetPatient(param || null);
+                setShareLocationTargetPatients(param ? [param] : null);
+              }
               setIsShareLocationOpen(true);
             }}
           />
@@ -894,8 +907,11 @@ export default function App() {
         onClose={() => {
           setIsShareLocationOpen(false);
           setShareLocationTargetPatient(null);
+          setShareLocationTargetPatients(null);
         }}
         patient={shareLocationTargetPatient}
+        initialPatient={shareLocationTargetPatient}
+        initialPatients={shareLocationTargetPatients}
         allPatients={patients}
         onSelectPatient={(p) => setShareLocationTargetPatient(p)}
         onOpenPublicPreview={(pId) => {

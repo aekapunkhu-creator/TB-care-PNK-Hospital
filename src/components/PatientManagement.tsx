@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Patient, TBType, TreatmentStatus, SputumResultStatus, UserAccount } from '../types';
 import { 
   Users, UserPlus, Search, Filter, Calendar, CheckCircle, 
-  XCircle, AlertCircle, Phone, FileText, Send, X, Plus, Clock, Eye, Edit3, Trash2, MapPin, Map, Navigation, Crosshair, FileSpreadsheet, Share2, Link
+  XCircle, AlertCircle, Phone, FileText, Send, X, Plus, Clock, Eye, Edit3, Trash2, MapPin, Map, Navigation, Crosshair, FileSpreadsheet, Share2, Link,
+  CheckSquare, Square, QrCode, Sparkles
 } from 'lucide-react';
 import { EditPatientModal } from './EditPatientModal';
 import { LocationPickerModal } from './LocationPickerModal';
@@ -19,7 +20,7 @@ interface PatientManagementProps {
   initialSelectedPatient?: Patient | null;
   currentUser?: UserAccount | null;
   onOpenExcelImportModal?: () => void;
-  onOpenShareLocationModal?: (patient?: Patient) => void;
+  onOpenShareLocationModal?: (patients?: Patient | Patient[]) => void;
 }
 
 export const PatientManagement: React.FC<PatientManagementProps> = ({
@@ -40,6 +41,9 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [subdistrictFilter, setSubdistrictFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // Multi-select state for bulk actions
+  const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
 
   // Modals
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -81,6 +85,41 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
     const matchStatus = statusFilter === 'all' || p.status === statusFilter;
     return matchText && matchSub && matchStatus;
   });
+
+  // Toggle single patient selection
+  const handleToggleSelect = (id: string) => {
+    setSelectedPatientIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  // Select all currently filtered
+  const handleSelectAllFiltered = () => {
+    const allFilteredIds = filteredPatients.map(p => p.id);
+    const isAllSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedPatientIds.includes(id));
+    if (isAllSelected) {
+      setSelectedPatientIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+    } else {
+      setSelectedPatientIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+    }
+  };
+
+  // Bulk share location modal opener
+  const handleBulkShareLocation = () => {
+    const selectedList = patients.filter(p => selectedPatientIds.includes(p.id));
+    if (onOpenShareLocationModal) {
+      onOpenShareLocationModal(selectedList.length > 0 ? selectedList : undefined);
+    }
+  };
+
+  // Bulk LINE Notify sender
+  const handleBulkLineNotify = () => {
+    const selectedList = patients.filter(p => selectedPatientIds.includes(p.id));
+    if (selectedList.length === 0) return;
+    if (window.confirm(`คุณต้องการส่งข้อความเตือนรับประทานยาผ่าน LINE ไปยังผู้ป่วยที่เลือกทั้งหมด ${selectedList.length} ราย หรือไม่?`)) {
+      selectedList.forEach(p => onTriggerPatientNotify(p));
+    }
+  };
 
   // Handle Register Form Submit
   const handleRegisterSubmit = (e: React.FormEvent) => {
@@ -260,12 +299,72 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
         </div>
       </div>
 
+      {/* Bulk Selection Action Bar */}
+      {selectedPatientIds.length > 0 && (
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 text-white rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <CheckSquare className="w-5 h-5 text-amber-300" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm">
+                เลือกผู้ป่วยแล้ว {selectedPatientIds.length} ราย
+              </h4>
+              <p className="text-xs text-emerald-100">
+                สามารถสร้างลิงก์และ QR Code ระบุพิกัดพร้อมกัน หรือส่งข้อความเตือน LINE เป็นกลุ่มได้
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {onOpenShareLocationModal && (
+              <button
+                onClick={handleBulkShareLocation}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-emerald-950 hover:bg-emerald-50 font-bold text-xs shadow transition"
+              >
+                <Share2 className="w-4 h-4 text-emerald-600" />
+                <span>สร้างลิงก์ & QR Code ({selectedPatientIds.length} ราย)</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleBulkLineNotify}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-xs shadow transition"
+            >
+              <Send className="w-4 h-4" />
+              <span>ส่งเตือน LINE ({selectedPatientIds.length} ราย)</span>
+            </button>
+
+            <button
+              onClick={() => setSelectedPatientIds([])}
+              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs transition"
+            >
+              ล้างที่เลือก
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Patient Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
               <tr>
+                <th className="py-3.5 px-3 text-center w-10">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllFiltered}
+                    className="text-slate-500 hover:text-emerald-600 focus:outline-none p-1"
+                    title="เลือกทั้งหมด/ยกเลิกทั้งหมด"
+                  >
+                    {filteredPatients.length > 0 && filteredPatients.every(p => selectedPatientIds.includes(p.id)) ? (
+                      <CheckSquare className="w-4 h-4 text-emerald-600 fill-emerald-100" />
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                </th>
                 <th className="py-3.5 px-4">HN / รหัส</th>
                 <th className="py-3.5 px-4">ชื่อ - นามสกุล</th>
                 <th className="py-3.5 px-4">ที่อยู่ (ตำบล/หมู่บ้าน)</th>
@@ -278,8 +377,26 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredPatients.length > 0 ? (
-                filteredPatients.map(patient => (
-                  <tr key={patient.id} className="hover:bg-slate-50/80 transition">
+                filteredPatients.map(patient => {
+                  const isChecked = selectedPatientIds.includes(patient.id);
+                  return (
+                  <tr 
+                    key={patient.id} 
+                    className={`transition ${isChecked ? 'bg-emerald-50/70 hover:bg-emerald-50' : 'hover:bg-slate-50/80'}`}
+                  >
+                    <td className="py-3.5 px-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelect(patient.id)}
+                        className="text-slate-500 hover:text-emerald-600 focus:outline-none p-1"
+                      >
+                        {isChecked ? (
+                          <CheckSquare className="w-4 h-4 text-emerald-600 fill-emerald-100" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-300" />
+                        )}
+                      </button>
+                    </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-emerald-800">
                       {patient.hn}
                     </td>
@@ -379,10 +496,11 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
                       )}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-slate-400">
+                  <td colSpan={9} className="text-center py-8 text-slate-400">
                     ไม่พบข้อมูลผู้ป่วยตรงตามเงื่อนไข
                   </td>
                 </tr>
