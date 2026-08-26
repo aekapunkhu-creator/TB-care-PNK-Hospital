@@ -839,6 +839,7 @@ export default function App() {
               }
               setIsShareLocationOpen(true);
             }}
+            onShowToast={showToast}
           />
         )}
 

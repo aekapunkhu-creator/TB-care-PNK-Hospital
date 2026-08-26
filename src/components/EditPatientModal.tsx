@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Patient, TBType, TreatmentStatus } from '../types';
-import { Edit3, X, Save, User, MapPin, Pill, Calendar, Phone, Shield, Crosshair, Map } from 'lucide-react';
+import { Edit3, X, Save, User, MapPin, Pill, Calendar, Phone, Shield, Crosshair, Map, CheckCircle2, Sparkles } from 'lucide-react';
 import { PHON_NA_KAEO_SUBDISTRICTS, getVillagesForSubdistrict } from '../data/mockData';
 import { LocationPickerModal } from './LocationPickerModal';
 
@@ -21,6 +21,7 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
 
   const [formData, setFormData] = useState<Patient>({ ...patient });
   const [isMapPickerOpen, setIsMapPickerOpen] = useState<boolean>(false);
+  const [locationSavedAlert, setLocationSavedAlert] = useState<string | null>(null);
 
   const handleChange = (field: keyof Patient, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -234,54 +235,74 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
             </div>
 
             {/* Coordinates / Map Pin Picker */}
-            <div className="mt-3 pt-3 border-t border-slate-200/80 bg-blue-50/50 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="space-y-1 w-full sm:w-auto">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-700">พิกัดแผนที่บ้านผู้ป่วย (GPS Coordinates):</span>
-                  {formData.lat && formData.lng ? (
-                    <span className="text-[11px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-semibold">
-                      Lat: {formData.lat}, Lng: {formData.lng}
-                    </span>
-                  ) : (
-                    <span className="text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-medium">
-                      ยังไม่ได้ระบุพิกัด
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <label className="text-[11px] text-slate-500 block">Latitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={formData.lat || ''}
-                      onChange={e => handleChange('lat', parseFloat(e.target.value) || 0)}
-                      placeholder="17.XXXXXX"
-                      className="p-1.5 rounded-lg border border-slate-200 font-mono text-xs w-full bg-white"
-                    />
+            <div className="mt-3 pt-3 border-t border-slate-200/80 bg-blue-50/50 p-3 rounded-xl flex flex-col space-y-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-1 w-full sm:w-auto">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-700">พิกัดแผนที่บ้านผู้ป่วย (GPS Coordinates):</span>
+                    {formData.lat && formData.lng ? (
+                      <span className="text-[11px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-semibold">
+                        Lat: {formData.lat}, Lng: {formData.lng}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-medium">
+                        ยังไม่ได้ระบุพิกัด
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <label className="text-[11px] text-slate-500 block">Longitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={formData.lng || ''}
-                      onChange={e => handleChange('lng', parseFloat(e.target.value) || 0)}
-                      placeholder="104.XXXXXX"
-                      className="p-1.5 rounded-lg border border-slate-200 font-mono text-xs w-full bg-white"
-                    />
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label className="text-[11px] text-slate-500 block">Latitude</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={formData.lat || ''}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value) || 0;
+                          handleChange('lat', val);
+                          setLocationSavedAlert(`อัปเดตละติจูดเป็น ${val}`);
+                          setTimeout(() => setLocationSavedAlert(null), 3000);
+                        }}
+                        placeholder="17.XXXXXX"
+                        className="p-1.5 rounded-lg border border-slate-200 font-mono text-xs w-full bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-slate-500 block">Longitude</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={formData.lng || ''}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value) || 0;
+                          handleChange('lng', val);
+                          setLocationSavedAlert(`อัปเดตลองจิจูดเป็น ${val}`);
+                          setTimeout(() => setLocationSavedAlert(null), 3000);
+                        }}
+                        placeholder="104.XXXXXX"
+                        className="p-1.5 rounded-lg border border-slate-200 font-mono text-xs w-full bg-white"
+                      />
+                    </div>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsMapPickerOpen(true)}
+                  className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition shrink-0"
+                >
+                  <Map className="w-4 h-4 text-amber-300" />
+                  <span>เปิดปักหมุดบนแผนที่ (Map Picker)</span>
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsMapPickerOpen(true)}
-                className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition shrink-0"
-              >
-                <Map className="w-4 h-4 text-amber-300" />
-                <span>เปิดปักหมุดบนแผนที่ (Map Picker)</span>
-              </button>
+              {/* Location Saved Alert Message */}
+              {locationSavedAlert && (
+                <div className="bg-emerald-100/90 text-emerald-900 border border-emerald-300 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>{locationSavedAlert}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -437,6 +458,8 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
               lat: selectedLat,
               lng: selectedLng
             }));
+            setLocationSavedAlert(`📍 บันทึกพิกัดตำแหน่งบ้านเรียบร้อยแล้ว: ละติจูด ${selectedLat}, ลองจิจูด ${selectedLng}`);
+            setTimeout(() => setLocationSavedAlert(null), 4000);
           }}
         />
 

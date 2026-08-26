@@ -7,7 +7,7 @@ import {
 } from '@vis.gl/react-google-maps';
 import { LeafletLocationPicker } from './LeafletLocationPicker';
 import { 
-  MapPin, X, Check, Navigation, Compass, Crosshair, HelpCircle, ExternalLink 
+  MapPin, X, Check, Navigation, Compass, Crosshair, HelpCircle, ExternalLink, CheckCircle2, Sparkles 
 } from 'lucide-react';
 import { PHON_NA_KAEO_SUBDISTRICTS } from '../data/mockData';
 
@@ -19,6 +19,7 @@ interface LocationPickerModalProps {
   subdistrictName?: string;
   patientName?: string;
   onSelectLocation: (lat: number, lng: number) => void;
+  onShowToast?: (msg: string) => void;
 }
 
 // Controller to smoothly pan when coordinates change
@@ -43,6 +44,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   subdistrictName,
   patientName,
   onSelectLocation,
+  onShowToast,
 }) => {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
@@ -54,6 +56,8 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   const [lng, setLng] = useState<number>(Number(defaultLng.toFixed(6)));
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'info'; text: string } | null>(null);
+  const [isSavedSuccess, setIsSavedSuccess] = useState<boolean>(false);
 
   // Reset when modal opens with new initial props
   useEffect(() => {
@@ -73,6 +77,8 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
       setLat(Number(startLat.toFixed(6)));
       setLng(Number(startLng.toFixed(6)));
       setGpsError(null);
+      setFeedbackMsg(null);
+      setIsSavedSuccess(false);
     }
   }, [isOpen, initialLat, initialLng, subdistrictName]);
 
@@ -98,6 +104,11 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         const userLng = Number(position.coords.longitude.toFixed(6));
         handleUpdateCoordinates(userLat, userLng);
         setGpsLoading(false);
+        setFeedbackMsg({
+          type: 'success',
+          text: `ตรวจพบพิกัด GPS ปัจจุบัน: Lat ${userLat}, Lng ${userLng}`
+        });
+        setTimeout(() => setFeedbackMsg(null), 3500);
       },
       (err) => {
         setGpsLoading(false);
@@ -108,8 +119,20 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   };
 
   const handleSave = () => {
+    setIsSavedSuccess(true);
+    const successMsg = `📍 บันทึกพิกัดตำแหน่งบ้านสำเร็จ: ละติจูด ${lat}, ลองจิจูด ${lng}${patientName ? ` (${patientName})` : ''}`;
+    
+    // Call parent toast if provided
+    if (onShowToast) {
+      onShowToast(successMsg);
+    }
+    
     onSelectLocation(lat, lng);
-    onClose();
+    
+    // Small delay to let user see confirmation check before closing
+    setTimeout(() => {
+      onClose();
+    }, 400);
   };
 
   if (!isOpen) return null;
@@ -243,6 +266,29 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             />
           )}
 
+          {/* Feedback message banner overlay */}
+          {feedbackMsg && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1100] bg-slate-900/90 text-white px-4 py-2 rounded-2xl shadow-xl border border-emerald-500/40 flex items-center gap-2 text-xs font-semibold backdrop-blur-md animate-fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{feedbackMsg.text}</span>
+            </div>
+          )}
+
+          {/* Success Save Banner */}
+          {isSavedSuccess && (
+            <div className="absolute inset-0 z-[1200] bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white p-6 animate-fade-in">
+              <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 mb-3 animate-bounce">
+                <Check className="w-9 h-9" />
+              </div>
+              <h4 className="text-lg font-bold text-emerald-300 mb-1">
+                บันทึกพิกัดตำแหน่งสำเร็จเรียบร้อย!
+              </h4>
+              <p className="text-xs text-slate-300 font-mono">
+                ละติจูด (Lat): {lat} | ลองจิจูด (Lng): {lng}
+              </p>
+            </div>
+          )}
+
           {/* Help Overlay Badge */}
           <div className="absolute top-3 right-3 z-[1000] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md text-xs font-medium text-slate-700 flex items-center gap-1.5 pointer-events-none">
             <HelpCircle className="w-3.5 h-3.5 text-emerald-600" />
@@ -295,7 +341,8 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             </button>
             <button
               onClick={handleSave}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-200 transition"
+              disabled={isSavedSuccess}
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-200 transition disabled:opacity-75"
             >
               <Check className="w-4 h-4" />
               <span>บันทึกพิกัดตำแหน่ง</span>

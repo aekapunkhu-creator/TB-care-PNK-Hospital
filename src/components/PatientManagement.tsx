@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Patient, TBType, TreatmentStatus, SputumResultStatus, UserAccount } from '../types';
 import { 
-  Users, UserPlus, Search, Filter, Calendar, CheckCircle, 
+  Users, UserPlus, Search, Filter, Calendar, CheckCircle, CheckCircle2,
   XCircle, AlertCircle, Phone, FileText, Send, X, Plus, Clock, Eye, Edit3, Trash2, MapPin, Map, Navigation, Crosshair, FileSpreadsheet, Share2, Link,
   CheckSquare, Square, QrCode, Sparkles
 } from 'lucide-react';
@@ -22,6 +22,7 @@ interface PatientManagementProps {
   currentUser?: UserAccount | null;
   onOpenExcelImportModal?: () => void;
   onOpenShareLocationModal?: (patients?: Patient | Patient[]) => void;
+  onShowToast?: (msg: string) => void;
 }
 
 export const PatientManagement: React.FC<PatientManagementProps> = ({
@@ -36,13 +37,15 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
   initialSelectedPatient,
   currentUser,
   onOpenExcelImportModal,
-  onOpenShareLocationModal
+  onOpenShareLocationModal,
+  onShowToast
 }) => {
   const isAdmin = currentUser?.role === 'Admin';
   // Filters & State
   const [searchTerm, setSearchTerm] = useState('');
   const [subdistrictFilter, setSubdistrictFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [locationAlertMessage, setLocationAlertMessage] = useState<string | null>(null);
 
   // Multi-select state for bulk actions
   const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
@@ -582,48 +585,57 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
               </div>
 
               {/* Patient Location Coordinates & Map Pin */}
-              <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                    <MapPin className="w-4 h-4 text-red-600" />
-                    <span>พิกัดบ้านผู้ป่วย:</span>
-                    <span className="font-semibold text-blue-900">
-                      {selectedPatient.houseNo ? `บ้านเลขที่ ${selectedPatient.houseNo}` : ''} {selectedPatient.village} {selectedPatient.subdistrict}
-                    </span>
-                  </div>
-                  <div className="text-xs font-mono text-slate-600 flex items-center gap-2 flex-wrap">
-                    <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold text-blue-800">
-                      Lat: {selectedPatient.lat || 'ยังไม่ระบุ'}
-                    </span>
-                    <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold text-blue-800">
-                      Lng: {selectedPatient.lng || 'ยังไม่ระบุ'}
-                    </span>
-                    {selectedPatient.lastLocationUpdatedBy && (
-                      <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 text-[10px] font-sans font-medium">
-                        📍 ปักหมุดโดย: {selectedPatient.lastLocationUpdatedBy} {selectedPatient.lastLocationUpdatedAt ? `(${selectedPatient.lastLocationUpdatedAt})` : ''}
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl flex flex-col space-y-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <MapPin className="w-4 h-4 text-red-600" />
+                      <span>พิกัดบ้านผู้ป่วย:</span>
+                      <span className="font-semibold text-blue-900">
+                        {selectedPatient.houseNo ? `บ้านเลขที่ ${selectedPatient.houseNo}` : ''} {selectedPatient.village} {selectedPatient.subdistrict}
                       </span>
+                    </div>
+                    <div className="text-xs font-mono text-slate-600 flex items-center gap-2 flex-wrap">
+                      <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold text-blue-800">
+                        Lat: {selectedPatient.lat || 'ยังไม่ระบุ'}
+                      </span>
+                      <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold text-blue-800">
+                        Lng: {selectedPatient.lng || 'ยังไม่ระบุ'}
+                      </span>
+                      {selectedPatient.lastLocationUpdatedBy && (
+                        <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 text-[10px] font-sans font-medium">
+                          📍 ปักหมุดโดย: {selectedPatient.lastLocationUpdatedBy} {selectedPatient.lastLocationUpdatedAt ? `(${selectedPatient.lastLocationUpdatedAt})` : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {onOpenShareLocationModal && (
+                      <button
+                        onClick={() => onOpenShareLocationModal(selectedPatient)}
+                        className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-amber-300" />
+                        <span>สร้างลิงก์ส่งพิกัด</span>
+                      </button>
                     )}
+                    <button
+                      onClick={() => setIsDetailMapPickerOpen(true)}
+                      className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
+                    >
+                      <Map className="w-3.5 h-3.5 text-amber-300" />
+                      <span>ปักหมุดบน Map</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  {onOpenShareLocationModal && (
-                    <button
-                      onClick={() => onOpenShareLocationModal(selectedPatient)}
-                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
-                    >
-                      <Share2 className="w-3.5 h-3.5 text-amber-300" />
-                      <span>สร้างลิงก์ส่งพิกัด</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setIsDetailMapPickerOpen(true)}
-                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
-                  >
-                    <Map className="w-3.5 h-3.5 text-amber-300" />
-                    <span>ปักหมุดบน Map</span>
-                  </button>
-                </div>
+                {locationAlertMessage && (
+                  <div className="bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>{locationAlertMessage}</span>
+                  </div>
+                )}
               </div>
 
               {/* Interactive Daily DOTS Medication Calendar */}
@@ -984,7 +996,11 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
         onSelectLocation={(selectedLat, selectedLng) => {
           setFormLat(selectedLat);
           setFormLng(selectedLng);
+          if (onShowToast) {
+            onShowToast(`📍 บันทึกพิกัดตำแหน่งผู้ป่วยใหม่สำเร็จ: Lat ${selectedLat}, Lng ${selectedLng}`);
+          }
         }}
+        onShowToast={onShowToast}
       />
 
       {/* Patient Detail Map Picker Modal */}
@@ -997,10 +1013,22 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
           subdistrictName={selectedPatient.subdistrict}
           patientName={`${selectedPatient.prefix}${selectedPatient.firstName} ${selectedPatient.lastName}`}
           onSelectLocation={(selectedLat, selectedLng) => {
-            const updated = { ...selectedPatient, lat: selectedLat, lng: selectedLng };
+            const updated = { 
+              ...selectedPatient, 
+              lat: selectedLat, 
+              lng: selectedLng,
+              lastLocationUpdatedAt: new Date().toLocaleString('th-TH'),
+              lastLocationUpdatedBy: currentUser?.fullName || 'เจ้าหน้าที่'
+            };
             setSelectedPatient(updated);
             onUpdatePatient(updated);
+            setLocationAlertMessage(`📍 บันทึกพิกัดตำแหน่งบ้านสำเร็จ: ละติจูด ${selectedLat}, ลองจิจูด ${selectedLng}`);
+            if (onShowToast) {
+              onShowToast(`📍 บันทึกพิกัดตำแหน่งบ้าน ${selectedPatient.prefix}${selectedPatient.firstName} สำเร็จ: Lat ${selectedLat}, Lng ${selectedLng}`);
+            }
+            setTimeout(() => setLocationAlertMessage(null), 4000);
           }}
+          onShowToast={onShowToast}
         />
       )}
 
