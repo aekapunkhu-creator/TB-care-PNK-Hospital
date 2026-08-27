@@ -27,7 +27,7 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount, InvestigationRecord } from '../types';
+import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount, InvestigationRecord, HomeVisitRecord } from '../types';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
@@ -136,6 +136,20 @@ export function subscribeInvestigations(onData: (data: InvestigationRecord[]) =>
     onData(items);
   }, (err) => {
     console.error('Investigations snapshot error:', err);
+    if (onError) onError(err);
+  });
+}
+
+export function subscribeHomeVisits(onData: (data: HomeVisitRecord[]) => void, onError?: (err: any) => void) {
+  const colRef = collection(db, 'homeVisits');
+  return onSnapshot(colRef, (snapshot) => {
+    const items: HomeVisitRecord[] = [];
+    snapshot.forEach(d => {
+      items.push(d.data() as HomeVisitRecord);
+    });
+    onData(items);
+  }, (err) => {
+    console.error('HomeVisits snapshot error:', err);
     if (onError) onError(err);
   });
 }
@@ -354,6 +368,51 @@ export async function deleteInvestigationFromFirestore(investigationId: string) 
     } catch (rtdbErr) {}
   } catch (e) {
     console.error('Error deleting investigation from firestore', e);
+  }
+}
+
+export async function saveAllHomeVisitsToFirestore(homeVisits: HomeVisitRecord[]) {
+  try {
+    const batch = writeBatch(db);
+    homeVisits.forEach(hv => {
+      const docRef = doc(db, 'homeVisits', hv.id);
+      batch.set(docRef, hv);
+    });
+    await batch.commit();
+
+    try {
+      const map: Record<string, HomeVisitRecord> = {};
+      homeVisits.forEach(hv => { map[hv.id] = hv; });
+      await rtdbSet(rtdbRef(rtdb, 'homeVisits'), map);
+    } catch (rtdbErr) {}
+  } catch (e) {
+    console.error('Error saving home visits to firestore', e);
+  }
+}
+
+export async function saveHomeVisitToFirestore(homeVisit: HomeVisitRecord) {
+  try {
+    const docRef = doc(db, 'homeVisits', homeVisit.id);
+    await setDoc(docRef, homeVisit);
+
+    try {
+      await rtdbSet(rtdbRef(rtdb, `homeVisits/${homeVisit.id}`), homeVisit);
+    } catch (rtdbErr) {}
+  } catch (e) {
+    console.error('Error saving home visit to firestore', e);
+  }
+}
+
+export async function deleteHomeVisitFromFirestore(homeVisitId: string) {
+  try {
+    const docRef = doc(db, 'homeVisits', homeVisitId);
+    await deleteDoc(docRef);
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, `homeVisits/${homeVisitId}`));
+    } catch (rtdbErr) {}
+  } catch (e) {
+    console.error('Error deleting home visit from firestore', e);
   }
 }
 

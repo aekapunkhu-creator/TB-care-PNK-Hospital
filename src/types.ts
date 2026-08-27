@@ -282,3 +282,126 @@ export interface InvestigationRecord {
   createdAt: string;
   updatedAt: string;
 }
+
+// -------------------------------------------------------------
+// ระบบเยี่ยมบ้านผู้ป่วยวัณโรค (Home Visit & Community Follow-up)
+// -------------------------------------------------------------
+export type HomeVisitStatus = 'เยี่ยมสำเร็จ (ปกติ)' | 'พบปัญหา/ต้องติดตามใกล้ชิด' | 'ส่งต่อแพทย์/รพ. (Referral)' | 'ไม่อยู่บ้าน/เลื่อนนัด';
+export type DOTSAdherenceRating = 'รับประทานยาทุกวัน สม่ำเสมอ 100%' | 'ลืมกินยา 1-2 วัน/สัปดาห์' | 'ลืมกินยา > 3 วัน/สัปดาห์ (เสี่ยงขาดยา)' | 'หยุดยาเอง / ปฏิเสธยา';
+export type VentilationRating = 'ดีมาก (โปร่ง แดดส่อง ลมถ่ายเทดี)' | 'ปานกลาง (ถ่ายเทพอใช้)' | 'แออัด/ทึบ แสงแดดส่องไม่ถึง';
+
+export interface HomeVisitRecord {
+  id: string;
+  patientId: string;
+  patientHN: string;
+  patientName: string;
+  subdistrict: string;
+  village: string;
+  houseNo: string;
+  visitRound: number; // ครั้งที่เยี่ยม (1, 2, 3...)
+  visitDate: string; // YYYY-MM-DD
+  visitTime?: string; // HH:mm
+  visitorName: string;
+  visitorRole: 'พยาบาลวิชาชีพ' | 'จพ.สาธารณสุข' | 'นักวิชาการสาธารณสุข' | 'อสม. พี่เลี้ยง' | 'ทีม 3 หมอ' | 'แพทย์/เภสัชกร';
+  visitorUnit: string;
+  visitorPhone?: string;
+
+  // วัตถุประสงค์การเยี่ยม
+  objectives: {
+    dotsFollowUp: boolean; // ติดตามการกินยา DOTS
+    adrScreening: boolean; // ประเมินอาการข้างเคียง
+    sputumFollowUp: boolean; // ติดตามส่งตรวจเสมหะ
+    contactScreening: boolean; // ติดตามตรวจผู้สัมผัส
+    environmentCheck: boolean; // ประเมินสิ่งแวดล้อม
+    healthEducation: boolean; // ให้ความรู้และคำแนะนำ
+    psychosocialSupport: boolean; // ดูแลด้านจิตใจและสังคม
+    missedAppointment: boolean; // ติดตามผู้ป่วยขาดนัด/ขาดยา
+  };
+
+  // สัญญาณชีพและอาการทางคลินิก (Vitals & Clinical Symptoms)
+  vitals: {
+    temperature?: number; // C
+    bloodPressure?: string; // e.g., 120/80
+    pulseRate?: number; // bpm
+    respiratoryRate?: number; // bpm
+    oxygenSat?: number; // %
+    bodyWeight?: number; // kg
+    weightChange?: 'เพิ่มขึ้น' | 'คงที่' | 'ลดลง';
+  };
+
+  symptoms: {
+    cough: 'ไม่มี' | 'ไอเล็กน้อย (ลดลง)' | 'ไอมาก/เรื้อรัง' | 'ไอเป็นเลือด (Hemoptysis)';
+    sputumCharacteristics?: 'ไม่มีเสมหะ' | 'เสมหะใส/ขาว' | 'เสมหะหนองสีเหลือง/เขียว' | 'เสมหะปนเลือด';
+    fever: boolean;
+    nightSweats: boolean;
+    dyspnea: boolean; // เหนื่อยหอบ
+    chestPain: boolean;
+    fatigue: boolean;
+    appetite: 'ปกติ/เจริญอาหาร' | 'เบื่ออาหารเล็กน้อย' | 'เบื่ออาหารมาก';
+  };
+
+  // การประเมินการกินยา (DOTS & Medication Adherence)
+  dotsSupervisor: {
+    type: 'อสม. พี่เลี้ยง' | 'เจ้าหน้าที่ รพ.สต.' | 'ญาติผู้ดูแล' | 'กินเอง' | 'V-DOT';
+    name?: string;
+    isSupervisingDaily: boolean;
+  };
+  adherence: DOTSAdherenceRating;
+  pillCountStatus: 'จำนวนเม็ดยาคงเหลือถูกต้องตรงรอบ' | 'ยาเหลือเกินรอบ (กินไม่ครบ)' | 'ยาหมดก่อนรอบ' | 'ไม่ได้นับเม็ดยา';
+  missedDosesLast2Weeks: number; // จำนวนวันที่ลืมกินยาใน 2 สัปดาห์ล่าสุด
+
+  // ผลข้างเคียงจากยาต้านวัณโรค (Side Effects / ADR)
+  sideEffects: {
+    nauseaVomiting: boolean; // คลื่นไส้/อาเจียน
+    orangeUrineAcknowledged: boolean; // ปัสสาวะสีส้ม (ทราบว่าเป็นฤทธิ์ยาปกติ)
+    jointPain: boolean; // ปวดข้อ/กล้ามเนื้อ
+    numbness: boolean; // ชาปลายมือปลายเท้า (Neuropathy)
+    itchingRash: boolean; // ผื่นคัน
+    jaundice: boolean; // ตัวเหลือง/ตาเหลือง (RED FLAG ตับอักเสบ)
+    visionBlur: boolean; // ตามัว/ตาบอดสี (RED FLAG จาก Ethambutol)
+    tinnitusDizziness: boolean; // หูอื้อ/เวียนศีรษะ
+    feverDrugReaction: boolean; // มีไข้จากแพ้ยา
+    otherSideEffects?: string;
+  };
+
+  // สุขาภิบาลและสิ่งแวดล้อมที่อยู่อาศัย (Environmental & IPC)
+  environment: {
+    ventilation: VentilationRating;
+    bedroomType: 'แยกห้องนอนเดี่ยว' | 'นอนรวมกับสมาชิกในบ้าน' | 'นอนนอกชาน/ที่โล่งโปร่ง';
+    sunlightExposure: 'แดดส่องถึงห้องพัก' | 'แดดส่องไม่ถึง/ทึบ';
+    sputumDisposalMethod: 'กระโถน/ถุงทิ้งมิดชิดผสมน้ำยาฆ่าเชื้อ' | 'กระดาษทิชชู่ใส่ถุงเผาทำลาย' | 'บ้วนทิ้งลงโถส้วม' | 'บ้วนทิ้งไม่ถูกสุขลักษณะ';
+    maskWearingCompliance: 'สวมหน้ากากสม่ำเสมอเมื่อมีคนอยู่ใกล้' | 'สวมเป็นครั้งคราว' | 'ไม่สวม';
+  };
+
+  // สภาพจิตใจและผู้สัมผัสร่วมบ้าน (Psychosocial & Family)
+  psychosocial: {
+    familySupport: 'ครอบครัวดูแลและให้กำลังใจดีมาก' | 'ครอบครัวดูแลพอใช้' | 'ขาดผู้ดูแล/อยู่ลำพัง' | 'ครอบครัวรังเกียจ/มีความวิตกกังวล';
+    financialDifficulty: boolean; // มีปัญหาค่าใช้จ่าย/เดินทาง
+    foodAidNeeded: boolean; // ต้องการถุงยังชีพ/โภชนาการเสริม
+    stressAnxietyLevel: 'ปกติ' | 'เครียด/กังวลปานกลาง' | 'เครียดมาก/ซึมเศร้า';
+  };
+
+  // การติดตามตรวจเสมหะและนัดหมาย (Follow-up & Sputum)
+  sputumFollowUpDone: boolean;
+  sputumResultNotes?: string;
+  nextAppointmentDate?: string;
+  nextVisitDueDate?: string;
+
+  // การวินิจฉัย/ปัญหาที่พบ แผนการดูแล และสถานะ (Summary & Care Plan)
+  identifiedProblems: string[]; // e.g. ['กินยาไม่สม่ำเสมอ', 'ตาเหลืองสงสัยตับอักเสบ', 'บ้านทึบอับชื้น']
+  interventionsProvided: string[]; // e.g. ['แนะนำเปิดหน้าต่างระบายอากาศ', 'สอนการบ้วนและกำจัดเสมหะ', 'ปรับแผนให้ อสม. ดูแลใกล้ชิด']
+  recommendationsAndNotes: string;
+  referralRequired: boolean;
+  referralReason?: string;
+  status: HomeVisitStatus;
+
+  // พิกัด GPS ณ วันที่ลงพื้นที่เยี่ยมบ้านจริง
+  visitLat?: number;
+  visitLng?: number;
+
+  // รูปภาพการเยี่ยมบ้าน (Base64 or image URLs)
+  photos?: string[];
+
+  createdAt: string;
+  updatedAt: string;
+}

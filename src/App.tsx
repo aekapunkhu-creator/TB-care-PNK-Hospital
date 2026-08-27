@@ -23,20 +23,23 @@ import {
   INITIAL_USERS
 } from './data/mockData';
 
-import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount, InvestigationRecord } from './types';
+import { Patient, HouseholdContact, LineNotificationConfig, NotificationLog, UserAccount, InvestigationRecord, HomeVisitRecord } from './types';
 import { CheckCircle2, AlertCircle, Database } from 'lucide-react';
 import { InvestigationManagement } from './components/InvestigationManagement';
+import { HomeVisitManagement } from './components/HomeVisitManagement';
 
 import {
   subscribePatients,
   subscribeContacts,
   subscribeInvestigations,
+  subscribeHomeVisits,
   subscribeUsers,
   subscribeLineConfig,
   subscribeLogs,
   saveAllPatientsToFirestore,
   saveAllContactsToFirestore,
   saveAllInvestigationsToFirestore,
+  saveAllHomeVisitsToFirestore,
   saveAllUsersToFirestore,
   saveLineConfigToFirestore,
   saveAllLogsToFirestore,
@@ -46,6 +49,8 @@ import {
   deleteContactFromFirestore,
   saveInvestigationToFirestore,
   deleteInvestigationFromFirestore,
+  saveHomeVisitToFirestore,
+  deleteHomeVisitFromFirestore,
   saveUserToFirestore,
   deleteUserFromFirestore,
   clearCollectionInFirestore,
@@ -58,7 +63,7 @@ const MOCK_CONTACT_IDS = ['CT-101', 'CT-102', 'CT-103', 'CT-104'];
 const MOCK_LOG_IDS = ['LOG-001', 'LOG-002', 'LOG-003'];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'investigations' | 'line-gas'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'spotmap' | 'patients' | 'contacts' | 'investigations' | 'home-visits' | 'line-gas'>('dashboard');
 
   // Application Persistent State
   const [patients, setPatients] = useState<Patient[]>(() => {
@@ -91,6 +96,14 @@ export default function App() {
     const saved = safeStorage.getItem('tb_phon_investigations_v1');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error('Error loading investigations from storage', e); }
+    }
+    return [];
+  });
+
+  const [homeVisits, setHomeVisits] = useState<HomeVisitRecord[]>(() => {
+    const saved = safeStorage.getItem('tb_phon_home_visits_v1');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error('Error loading home visits from storage', e); }
     }
     return [];
   });
@@ -177,7 +190,17 @@ export default function App() {
       () => {}
     );
 
-    // 4. Subscribe Users
+    // 4. Subscribe Home Visits
+    const unsubHomeVisits = subscribeHomeVisits(
+      (data) => {
+        if (data) {
+          setHomeVisits(data);
+        }
+      },
+      () => {}
+    );
+
+    // 5. Subscribe Users
     const unsubUsers = subscribeUsers(
       (data) => {
         if (data && data.length > 0) {
@@ -189,12 +212,12 @@ export default function App() {
       () => {}
     );
 
-    // 5. Subscribe Line Config
+    // 6. Subscribe Line Config
     const unsubLine = subscribeLineConfig((cfg) => {
       if (cfg) setLineConfig(cfg);
     });
 
-    // 6. Subscribe Logs
+    // 7. Subscribe Logs
     const unsubLogs = subscribeLogs((l) => {
       const cleaned = (l || []).filter(log => !MOCK_LOG_IDS.includes(log.id));
       setLogs(cleaned);
@@ -204,6 +227,7 @@ export default function App() {
       unsubPatients();
       unsubContacts();
       unsubInvestigations();
+      unsubHomeVisits();
       unsubUsers();
       unsubLine();
       unsubLogs();
@@ -231,6 +255,13 @@ export default function App() {
       saveAllInvestigationsToFirestore(investigations);
     }
   }, [investigations]);
+
+  useEffect(() => {
+    safeStorage.setItem('tb_phon_home_visits_v1', JSON.stringify(homeVisits));
+    if (homeVisits.length > 0) {
+      saveAllHomeVisitsToFirestore(homeVisits);
+    }
+  }, [homeVisits]);
 
   useEffect(() => {
     safeStorage.setItem('tb_phon_line_config_v2', JSON.stringify(lineConfig));
@@ -566,8 +597,28 @@ export default function App() {
     showToast(`ลบแบบสอบสวนโรค ${target ? target.investigationNumber : ''} เรียบร้อยแล้ว`);
   };
 
+  // Home Visit Handlers
+  const handleSaveHomeVisit = (record: HomeVisitRecord) => {
+    setHomeVisits(prev => {
+      const exists = prev.some(r => r.id === record.id);
+      if (exists) {
+        return prev.map(r => r.id === record.id ? record : r);
+      }
+      return [record, ...prev];
+    });
+    saveHomeVisitToFirestore(record);
+    showToast(`บันทึกการเยี่ยมบ้านผู้ป่วย "${record.patientName}" สำเร็จแล้ว`);
+  };
+
+  const handleDeleteHomeVisit = (visitId: string) => {
+    const target = homeVisits.find(v => v.id === visitId);
+    setHomeVisits(prev => prev.filter(v => v.id !== visitId));
+    deleteHomeVisitFromFirestore(visitId);
+    showToast(`ลบบันทึกการเยี่ยมบ้าน ${target ? target.patientName : ''} เรียบร้อยแล้ว`);
+  };
+
   const handleWipeAllData = async () => {
-    if (!window.confirm('⚠️ คำเตือน: คุณต้องการลบข้อมูลผู้ป่วย, คัดกรองผู้สัมผัส, แบบสอบสวนโรค และประวัติการแจ้งเตือนทั้งหมดออกจากระบบและฐานข้อมูล Cloud หรือไม่?\n\n(ข้อมูลจะถูกล้างหมดทั้งในเครื่องและ Cloud ฐานข้อมูลจะว่างเปล่าพร้อมใช้งาน)')) {
+    if (!window.confirm('⚠️ คำเตือน: คุณต้องการลบข้อมูลผู้ป่วย, คัดกรองผู้สัมผัส, แบบสอบสวนโรค, การเยี่ยมบ้าน และประวัติการแจ้งเตือนทั้งหมดออกจากระบบและฐานข้อมูล Cloud หรือไม่?\n\n(ข้อมูลจะถูกล้างหมดทั้งในเครื่องและ Cloud ฐานข้อมูลจะว่างเปล่าพร้อมใช้งาน)')) {
       return;
     }
     
@@ -577,6 +628,7 @@ export default function App() {
     localStorage.removeItem('tb_phon_contacts_v2');
     localStorage.removeItem('tb_phon_contacts_v3');
     localStorage.removeItem('tb_phon_investigations_v1');
+    localStorage.removeItem('tb_phon_home_visits_v1');
     localStorage.removeItem('tb_phon_logs_v2');
     localStorage.removeItem('tb_phon_logs_v3');
     
@@ -584,6 +636,7 @@ export default function App() {
     setPatients([]);
     setContacts([]);
     setInvestigations([]);
+    setHomeVisits([]);
     setLogs([]);
     setSelectedPatientForDetail(null);
 
@@ -591,6 +644,7 @@ export default function App() {
     await clearCollectionInFirestore('patients');
     await clearCollectionInFirestore('contacts');
     await clearCollectionInFirestore('investigations');
+    await clearCollectionInFirestore('homeVisits');
     await clearCollectionInFirestore('logs');
 
     showToast('ลบข้อมูลทั้งหมดในระบบและฐานข้อมูล Cloud เรียบร้อยแล้ว');
@@ -752,6 +806,7 @@ export default function App() {
         patientsCount={patients.length}
         contactsCount={contacts.length}
         investigationsCount={investigations.length}
+        homeVisitsCount={homeVisits.length}
         missedDosesCount={missedDosesCount}
         onOpenExport={() => setIsExportOpen(true)}
         currentUser={currentUser}
@@ -865,6 +920,20 @@ export default function App() {
             onDeleteInvestigation={handleDeleteInvestigation}
             currentUser={currentUser}
             onNavigateToContacts={() => setActiveTab('contacts')}
+          />
+        )}
+
+        {activeTab === 'home-visits' && (
+          <HomeVisitManagement
+            homeVisits={homeVisits}
+            patients={patients}
+            contacts={contacts}
+            subdistricts={PHON_NA_KAEO_SUBDISTRICTS}
+            onSaveHomeVisit={handleSaveHomeVisit}
+            onDeleteHomeVisit={handleDeleteHomeVisit}
+            currentUser={currentUser}
+            onNavigateToPatients={() => setActiveTab('patients')}
+            onTriggerQuickNotify={(msg) => showToast(msg)}
           />
         )}
 

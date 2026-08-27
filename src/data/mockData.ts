@@ -1,4 +1,4 @@
-import { Patient, HouseholdContact, SubdistrictInfo, LineNotificationConfig, NotificationLog, UserAccount } from '../types';
+import { Patient, HouseholdContact, SubdistrictInfo, LineNotificationConfig, NotificationLog, UserAccount, HomeVisitRecord } from '../types';
 
 export const INITIAL_USERS: UserAccount[] = [
   {
@@ -296,6 +296,8 @@ const getDateDaysAhead = (days: number): string => {
 export const INITIAL_PATIENTS: Patient[] = [];
 
 export const INITIAL_CONTACTS: HouseholdContact[] = [];
+
+export const INITIAL_HOME_VISITS: HomeVisitRecord[] = [];
 
 export const getVillagesForSubdistrict = (subdistrictName: string): string[] => {
   const found = PHON_NA_KAEO_SUBDISTRICTS.find(s => s.name === subdistrictName);
