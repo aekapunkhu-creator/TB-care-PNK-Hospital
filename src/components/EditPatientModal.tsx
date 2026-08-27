@@ -3,6 +3,7 @@ import { Patient, TBType, TreatmentStatus } from '../types';
 import { Edit3, X, Save, User, MapPin, Pill, Calendar, Phone, Shield, Crosshair, Map, CheckCircle2, Sparkles } from 'lucide-react';
 import { PHON_NA_KAEO_SUBDISTRICTS, getVillagesForSubdistrict } from '../data/mockData';
 import { LocationPickerModal } from './LocationPickerModal';
+import { TREATMENT_STATUS_OPTIONS } from '../utils/statusUtils';
 
 interface EditPatientModalProps {
   patient: Patient | null;
@@ -165,12 +166,11 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
                   onChange={e => handleChange('status', e.target.value as TreatmentStatus)}
                   className="w-full p-2.5 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500 font-bold text-blue-700"
                 >
-                  <option value="Active">อยู่ระหว่างรักษา (Active)</option>
-                  <option value="Cured">หายขาด (Cured)</option>
-                  <option value="Completed">รักษาครบกำหนด (Completed)</option>
-                  <option value="Interrupted">ขาดยา/ขาดการรักษา (Interrupted)</option>
-                  <option value="Died">เสียชีวิต (Died)</option>
-                  <option value="Transferred">โอนย้ายออก (Transferred)</option>
+                  {TREATMENT_STATUS_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

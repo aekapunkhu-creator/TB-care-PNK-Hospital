@@ -8,6 +8,12 @@ import {
 import { EditPatientModal } from './EditPatientModal';
 import { LocationPickerModal } from './LocationPickerModal';
 import { getVillagesForSubdistrict, PHON_NA_KAEO_SUBDISTRICTS } from '../data/mockData';
+import { 
+  TREATMENT_STATUS_OPTIONS, 
+  getTreatmentStatusOption, 
+  getTreatmentStatusShortLabel, 
+  getTreatmentStatusBadgeClass 
+} from '../utils/statusUtils';
 
 interface PatientManagementProps {
   patients: Patient[];
@@ -75,6 +81,7 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
   const [formLng, setFormLng] = useState<number>(104.288);
   const [formTBType, setFormTBType] = useState<TBType>('Pulmonary Smear+');
   const [formRegimen, setFormRegimen] = useState('2HRZE/4HR');
+  const [formStatus, setFormStatus] = useState<TreatmentStatus>('Active');
   const [formSupervisorName, setFormSupervisorName] = useState('');
   const [formSupervisorRole, setFormSupervisorRole] = useState<'อสม. พี่เลี้ยง' | 'เจ้าหน้าที่ รพ.สต.' | 'ญาติผู้ดูแล'>('อสม. พี่เลี้ยง');
   const [formSupervisorPhone, setFormSupervisorPhone] = useState('');
@@ -155,7 +162,7 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
       dotsSupervisorName: formSupervisorName || 'เจ้าหน้าที่ รพ.สต.',
       dotsSupervisorRole: formSupervisorRole,
       dotsSupervisorPhone: formSupervisorPhone,
-      status: 'Active',
+      status: formStatus,
       lat: formLat || 17.065,
       lng: formLng || 104.288,
       sputumRecords: [
@@ -177,6 +184,7 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
     setFormHN('');
     setFormFirstName('');
     setFormLastName('');
+    setFormStatus('Active');
   };
 
   // Toggle Daily Medication Taken Status for Selected Patient
@@ -298,9 +306,11 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
               className="w-full bg-transparent focus:outline-none cursor-pointer"
             >
               <option value="all">สถานะการรักษา (ทั้งหมด)</option>
-              <option value="Active">กำลังรักษาอยู่ (Active)</option>
-              <option value="Cured">รักษาหายแล้ว (Cured)</option>
-              <option value="Interrupted">ขาดรับยา (Interrupted)</option>
+              {TREATMENT_STATUS_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -440,14 +450,8 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
                       <div className="text-[11px] text-slate-400">{patient.dotsSupervisorRole} ({patient.dotsSupervisorPhone})</div>
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                        patient.status === 'Active'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : patient.status === 'Cured'
-                          ? 'bg-teal-100 text-teal-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {patient.status === 'Active' ? 'กำลังรักษา' : patient.status === 'Cured' ? 'รักษาหาย' : 'ขาดยา'}
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${getTreatmentStatusBadgeClass(patient.status)}`}>
+                        {getTreatmentStatusShortLabel(patient.status)}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center space-x-1">
@@ -525,13 +529,16 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
             {/* Modal Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-xs">
                     {selectedPatient.hn}
                   </span>
                   <h3 className="text-lg font-bold text-slate-900">
                     {selectedPatient.prefix}{selectedPatient.firstName} {selectedPatient.lastName}
                   </h3>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getTreatmentStatusBadgeClass(selectedPatient.status)}`}>
+                    {getTreatmentStatusShortLabel(selectedPatient.status)}
+                  </span>
                 </div>
                 <p className="text-xs text-slate-500">
                   {selectedPatient.subdistrict} ({selectedPatient.village}) &bull; โทร: {selectedPatient.phone}
@@ -569,7 +576,7 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
             <div className="p-5 space-y-6">
               
               {/* Patient Info Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/70 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/70 text-xs">
                 <div>
                   <span className="text-slate-400">ประเภทโรค:</span>
                   <div className="font-bold text-slate-900">{selectedPatient.tbType}</div>
@@ -577,6 +584,10 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
                 <div>
                   <span className="text-slate-400">สูตรยาต้านวัณโรค:</span>
                   <div className="font-bold text-emerald-700">{selectedPatient.regimen}</div>
+                </div>
+                <div>
+                  <span className="text-slate-400">สถานะการรักษา:</span>
+                  <div className="font-bold text-blue-800">{getTreatmentStatusShortLabel(selectedPatient.status)}</div>
                 </div>
                 <div>
                   <span className="text-slate-400">อสม./ผู้ดูแล DOTS:</span>
@@ -918,13 +929,13 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-medium mb-1">ประเภทโรควัณโรค</label>
+                  <label className="block text-slate-700 font-medium mb-1">ประเภทโรควัณโรค *</label>
                   <select
                     value={formTBType}
                     onChange={e => setFormTBType(e.target.value as TBType)}
-                    className="w-full p-2 border border-slate-200 rounded-lg"
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs"
                   >
                     <option value="Pulmonary Smear+">Pulmonary Smear+ (เสมหะพบเชื้อ)</option>
                     <option value="Pulmonary Smear-">Pulmonary Smear- (เสมหะไม่พบเชื้อ)</option>
@@ -932,13 +943,27 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-700 font-medium mb-1">สูตรยาต้านวัณโรค</label>
+                  <label className="block text-slate-700 font-medium mb-1">สูตรยาต้านวัณโรค *</label>
                   <input
                     type="text"
                     value={formRegimen}
                     onChange={e => setFormRegimen(e.target.value)}
-                    className="w-full p-2 border border-slate-200 rounded-lg"
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-mono"
                   />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-medium mb-1">สถานะการรักษา *</label>
+                  <select
+                    value={formStatus}
+                    onChange={e => setFormStatus(e.target.value as TreatmentStatus)}
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-bold text-emerald-700 bg-white"
+                  >
+                    {TREATMENT_STATUS_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

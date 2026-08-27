@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Patient, HouseholdContact, TBType, TreatmentStatus, CXRResult, SputumResultStatus, ContactOutcome } from '../types';
+import { normalizeTreatmentStatus } from './statusUtils';
 
 /**
  * 1. สร้างและดาวน์โหลดไฟล์เทมเพลต Excel สำหรับผู้ป่วยวัณโรค (TB Patients Template)
@@ -21,6 +22,7 @@ export function downloadPatientExcelTemplate() {
     'Longitude',
     'ประเภทโรค',
     'สูตรยารักษา',
+    'สถานะการรักษา',
     'ผู้ดูแลDOTS',
     'ตำแหน่งผู้ดูแล',
     'เบอร์ผู้ดูแล'
@@ -43,6 +45,7 @@ export function downloadPatientExcelTemplate() {
       104.28850,
       'Pulmonary Smear+',
       '2HRZE/4HR',
+      'อยู่ระหว่างรักษา (Active)',
       'นางสมพร (อสม.)',
       'อสม. พี่เลี้ยง',
       '089-111-2222'
@@ -63,6 +66,7 @@ export function downloadPatientExcelTemplate() {
       104.29540,
       'Pulmonary Smear-',
       '2HRZE/4HR',
+      'รักษาครบกำหนด (Completed)',
       'พยาบาล รพ.สต.',
       'เจ้าหน้าที่ รพ.สต.',
       '089-333-4444'
@@ -89,6 +93,7 @@ export function downloadPatientExcelTemplate() {
     { wch: 12 }, // Lng
     { wch: 20 }, // TBType
     { wch: 14 }, // Regimen
+    { wch: 24 }, // Status
     { wch: 20 }, // Supervisor
     { wch: 18 }, // SupervisorRole
     { wch: 15 }  // SupervisorPhone
@@ -333,7 +338,7 @@ export async function parseExcelFile(file: File): Promise<ParseExcelResult> {
                 dotsSupervisorName: String(getValue(row, ['ผู้ดูแลdots', 'ผู้ดูแล', 'อสม', 'supervisor']) || 'เจ้าหน้าที่ รพ.สต.'),
                 dotsSupervisorRole: String(getValue(row, ['ตำแหน่งผู้ดูแล', 'supervisorrole']) || 'อสม. พี่เลี้ยง') as any,
                 dotsSupervisorPhone: String(getValue(row, ['เบอร์ผู้ดูแล', 'supervisorphone']) || '-'),
-                status: 'Active',
+                status: normalizeTreatmentStatus(getValue(row, ['สถานะการรักษา', 'สถานะ', 'status', 'ผลการรักษา', 'treatmentstatus'])),
                 lat: latVal || 17.06520,
                 lng: lngVal || 104.28850,
                 sputumRecords: [

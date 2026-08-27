@@ -6,6 +6,7 @@ import {
   SubdistrictInfo 
 } from '../types';
 import { PHON_NA_KAEO_SUBDISTRICTS } from '../data/mockData';
+import { getTreatmentStatusShortLabel, getTreatmentStatusBadgeClass } from '../utils/statusUtils';
 import { 
   Building2, 
   Home, 
